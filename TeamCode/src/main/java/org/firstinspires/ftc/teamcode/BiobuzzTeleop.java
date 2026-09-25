@@ -1,12 +1,13 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.pedropathing.drivetrain.DrivePowers;
-import com.pedropathing.revhub.drivetrains.Mecanum;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.ftc.drivetrains.Mecanum;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
-import java.util.Map;
+import java.util.List;
 
 /*
  * Controls for Gamepad 1:
@@ -30,6 +31,7 @@ public class BiobuzzTeleop extends LinearOpMode {
     private static final double DRIVE_HIGH_POWER = 1.0;
     private static final double DRIVE_LOW_POWER = 0.4;
 
+    private Follower follower;
     private Mecanum drivetrain;
     private boolean fastDriveMode = true;
 
@@ -40,6 +42,8 @@ public class BiobuzzTeleop extends LinearOpMode {
         // Wait for the game to start (driver presses START)
         waitForStart();
 
+        follower.startTeleopDrive();
+
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
             drive();
@@ -48,7 +52,8 @@ public class BiobuzzTeleop extends LinearOpMode {
     }
 
     private void initHardware() {
-        drivetrain = new Mecanum(hardwareMap, Constants.driveConfig);
+        follower = Constants.createFollower(hardwareMap);
+        drivetrain = (Mecanum) follower.getDrivetrain();
 
         // Send telemetry message to signify robot waiting;
         telemetry.addData(">", "Robot Ready.  Press START.");
@@ -65,10 +70,10 @@ public class BiobuzzTeleop extends LinearOpMode {
 
         // Run wheels in POV mode
         // The left stick moves the robot fwd/back and strafes left/right
-        // The right stick turns the robot counterclockwise and clockwise
+        // The triggers turn the robot counterclockwise and clockwise
         double drive = -gamepad1.left_stick_y;
-        double strafe = gamepad1.left_stick_x;
-        double turn = gamepad1.right_trigger - gamepad1.left_trigger;
+        double strafe = -gamepad1.left_stick_x;
+        double turn = gamepad1.left_trigger - gamepad1.right_trigger;
 
         double powerLimit = fastDriveMode ? DRIVE_HIGH_POWER : DRIVE_LOW_POWER;
 
@@ -77,32 +82,21 @@ public class BiobuzzTeleop extends LinearOpMode {
             powerLimit /= 2;
         }
 
-        // Mecanum's strafe and turn axes point opposite this stick mapping, so negate them
-        // here to keep turning and strafing feel matched to the drive (forward/back) axis.
-        DrivePowers powers = new DrivePowers(drive, -strafe, -turn);
-
-        // Scale down (rather than just clip) if this exceeds the current mode's power limit,
-        // so slow mode stays proportional instead of clamping to a differently-shaped output.
-        double maxWheelPower = 0;
-        for (double wheelPower : drivetrain.computeWheelPowersUnnormalized(powers)) {
-            maxWheelPower = Math.max(maxWheelPower, Math.abs(wheelPower));
-        }
-        if (maxWheelPower > powerLimit) {
-            double scale = powerLimit / maxWheelPower;
-            powers = new DrivePowers(drive * scale, -strafe * scale, -turn * scale);
-        }
-
-        drivetrain.drive(powers, true);
+        // setMaxPower scales all wheel powers down proportionally (rather than clipping) when
+        // the requested drive exceeds it, so slow mode stays proportional to the joystick input.
+        follower.setMaxPower(powerLimit);
+        follower.setTeleOpDrive(drive, strafe, turn, true);
+        follower.update();
     }
 
     private void updateTelemetry() {
         telemetry.addData("Fast Drive Mode", fastDriveMode);
 
-        Map<String, Object> drivetrainDebug = drivetrain.debug();
-        telemetry.addData("Front Left Power", drivetrainDebug.get("leftFrontWheelPower"));
-        telemetry.addData("Front Right Power", drivetrainDebug.get("rightFrontWheelPower"));
-        telemetry.addData("Rear Left Power", drivetrainDebug.get("leftBackWheelPower"));
-        telemetry.addData("Rear Right Power", drivetrainDebug.get("rightBackWheelPower"));
+        List<DcMotorEx> motors = drivetrain.getMotors();
+        telemetry.addData("Front Left Power", motors.get(0).getPower());
+        telemetry.addData("Front Right Power", motors.get(2).getPower());
+        telemetry.addData("Rear Left Power", motors.get(1).getPower());
+        telemetry.addData("Rear Right Power", motors.get(3).getPower());
 
         telemetry.addData("gamepad1 LeftStick Y (-drive)", gamepad1.left_stick_y);
         telemetry.addData("gamepad1 LeftStick X (strafe)", gamepad1.left_stick_x);
