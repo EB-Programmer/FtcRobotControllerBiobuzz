@@ -11,7 +11,8 @@ import java.util.function.Function;
  * A settings-style telemetry menu for a LinearOpMode's init loop. Each choice is one row showing
  * its current value; on either gamepad, d-pad up/down picks a row and d-pad left/right changes
  * that row's value. Every choice starts on its first option, so there's always a complete set of
- * values to run with, and what's on screen is exactly what's used when Start is pressed.
+ * values to run with, and what's on screen is exactly what's used when Start is pressed. The
+ * d-pad is ignored on a gamepad whose X is held, since X + d-pad switches LogLevel.
  *
  * <pre>
  * InitMenu menu = new InitMenu("Auton setup");
@@ -89,10 +90,16 @@ public class InitMenu {
      * still calls telemetry.update().
      */
     public void update(Gamepad gamepad1, Gamepad gamepad2, Telemetry telemetry) {
-        boolean up = gamepad1.dpadUpWasPressed() | gamepad2.dpadUpWasPressed();
-        boolean down = gamepad1.dpadDownWasPressed() | gamepad2.dpadDownWasPressed();
-        boolean left = gamepad1.dpadLeftWasPressed() | gamepad2.dpadLeftWasPressed();
-        boolean right = gamepad1.dpadRightWasPressed() | gamepad2.dpadRightWasPressed();
+        // Every press is read on every pass, even while X is held, so a press made with X held
+        // is used up then instead of taking effect once X is let go
+        boolean up = menuPress(gamepad1, gamepad1.dpadUpWasPressed())
+                | menuPress(gamepad2, gamepad2.dpadUpWasPressed());
+        boolean down = menuPress(gamepad1, gamepad1.dpadDownWasPressed())
+                | menuPress(gamepad2, gamepad2.dpadDownWasPressed());
+        boolean left = menuPress(gamepad1, gamepad1.dpadLeftWasPressed())
+                | menuPress(gamepad2, gamepad2.dpadLeftWasPressed());
+        boolean right = menuPress(gamepad1, gamepad1.dpadRightWasPressed())
+                | menuPress(gamepad2, gamepad2.dpadRightWasPressed());
 
         if (!choices.isEmpty()) {
             if (up) {
@@ -117,6 +124,11 @@ public class InitMenu {
             telemetry.addLine(formatRow(choices.get(i), i == row));
         }
         telemetry.addLine("------------");
+    }
+
+    /** Whether a d-pad press counts for the menu: not while that gamepad's X is held. */
+    private static boolean menuPress(Gamepad gamepad, boolean wasPressed) {
+        return wasPressed && !gamepad.x;
     }
 
     private static <T> String formatRow(Choice<T> choice, boolean highlighted) {

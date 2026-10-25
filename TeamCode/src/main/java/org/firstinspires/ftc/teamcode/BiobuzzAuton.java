@@ -13,6 +13,7 @@ import org.firstinspires.ftc.teamcode.routes.RouteActions;
 import org.firstinspires.ftc.teamcode.routes.UpCellRoute;
 import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.InitMenu;
+import org.firstinspires.ftc.teamcode.util.LogLevel;
 import org.firstinspires.ftc.teamcode.util.LoopTimer;
 
 import java.util.ArrayList;
@@ -24,7 +25,8 @@ import java.util.Locale;
  * order, each followed by its afterPath() actions while the robot holds that path's end pose.
  * During init the driver picks the route (the first one in routes, unless changed) from a
  * settings menu on the d-pad. See pedro/paths for how to add a new route from the online path
- * visualizer.
+ * visualizer. On either gamepad, X + d-pad left/right switches telemetry between INFO and DEBUG
+ * (see LogLevel).
  */
 @Autonomous(name = "EB Auton", group = "EBBiobuzz", preselectTeleOp = "EB Teleop")
 public class BiobuzzAuton extends LinearOpMode {
@@ -45,6 +47,7 @@ public class BiobuzzAuton extends LinearOpMode {
     private RouteActions routeActions;
     private final ElapsedTime autonTimer = new ElapsedTime();
     private final LoopTimer loopTimer = new LoopTimer();
+    private final LogLevel logLevel = new LogLevel();
 
     /** Which step's actions are running and the pose held meanwhile, for the hold loop. */
     private String actionStep;
@@ -69,6 +72,7 @@ public class BiobuzzAuton extends LinearOpMode {
 
         while (opModeInInit()) {
             follower.update();  // keeps odometry, and so the Pinpoint status below, current
+            logLevel.update(gamepad1, gamepad2);
             menu.update(gamepad1, gamepad2, telemetry);
             if (routeChoice.changed()) {
                 loadRoute(routeChoice.get());
@@ -80,6 +84,7 @@ public class BiobuzzAuton extends LinearOpMode {
                 telemetry.addLine(routeError);
             }
             telemetry.addData("Pinpoint", followerTelemetry.pinpointStatus());
+            logLevel.addTelemetry(telemetry);
             telemetry.update();
         }
     }
@@ -160,6 +165,7 @@ public class BiobuzzAuton extends LinearOpMode {
             // clears the follower's stuck flag.
             stalled = followerTelemetry.isStalled();
             follower.update();
+            logLevel.update(gamepad1, gamepad2);
             addFollowingTelemetry(pathIndex, path, loopTimer.lap());
             telemetry.update();
         }
@@ -180,26 +186,38 @@ public class BiobuzzAuton extends LinearOpMode {
     /** One pass of the loop that runs while route actions wait: hold position and report. */
     private void holdLoop(String activity) {
         follower.update();
+        logLevel.update(gamepad1, gamepad2);
         double loopMs = loopTimer.lap();
 
-        telemetry.addData("Action", "%s: %s,   %.1fs / 30s total",
+        telemetry.addData("Step", "%s: %s,   %.1fs / 30s total",
                 actionStep, activity, autonTimer.seconds());
         followerTelemetry.addPose(holdPose);
         followerTelemetry.addHealth(loopMs);
+        logLevel.addTelemetry(telemetry);
+        followerTelemetry.addWarnings();
         telemetry.update();
     }
 
+    /**
+     * The same INFO lines, in the same order, as holdLoop's, so the screen keeps its layout as the
+     * robot goes back and forth between driving and route actions. Warnings, which come and go,
+     * go last so they never move the other lines.
+     */
     private void addFollowingTelemetry(int pathIndex, Path path, double loopMs) {
-        telemetry.addData("Path", "%d / %d,   %.1fs / 30s total",
+        telemetry.addData("Step", "path %d / %d,   %.1fs / 30s total",
                 pathIndex + 1, pathSequence.size(), autonTimer.seconds());
         followerTelemetry.addPose(path.getPose(1));
-        //telemetry.addData("Off path", "%.1f in, %.1f° heading",
-        //        follower.getTranslationalError().getMagnitude(),
-        //        Math.toDegrees(follower.getHeadingError()));
-        //telemetry.addData("Progress", "%.0f%%, %.1f in left",
-        //        follower.getPathCompletion() * 100, follower.getDistanceRemaining());
+        if (logLevel.isDebug()) {
+            telemetry.addData("Off path", "%.1f in, %.1f° heading",
+                    follower.getTranslationalError().getMagnitude(),
+                    Math.toDegrees(follower.getHeadingError()));
+            telemetry.addData("Progress", "%.0f%%, %.1f in left",
+                    follower.getPathCompletion() * 100, follower.getDistanceRemaining());
+        }
         followerTelemetry.addHealth(loopMs);
+        logLevel.addTelemetry(telemetry);
 
+        followerTelemetry.addWarnings();
         if (followerTelemetry.isStalled()) {
             telemetry.addLine("!! STALLED short of the path's end -- path will end early !!");
         }

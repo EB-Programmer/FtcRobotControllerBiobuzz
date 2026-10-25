@@ -18,7 +18,7 @@ import java.util.Locale;
  * Aims the robot at its alliance's HIVE using the Limelight's view of the AprilTag Clusters on
  * the HIVE CELLS: each alliance has two CELLS with a cluster of four tags each, and which CELL is
  * up changes after each HIVE TIP. The up CELL's cluster is the one to aim at, at its middle; the
- * other CELL's cluster is seen upside down and ignored (see TagCluster and chooseAimCluster()).
+ * other CELL's tags are seen upside down (see TagCorners) and left out.
  *
  * It also remembers where on the field the HIVE was last seen (see HiveMemory). With no tags in
  * view, getTurn() turns the robot toward that remembered spot from wherever the robot is now,
@@ -53,8 +53,11 @@ public class HiveAim {
     private final Follower follower;
     private final PoseHistory poseHistory = new PoseHistory();
     private final HiveMemory memory = new HiveMemory();
-    private final List<TagCluster> clusters = new ArrayList<>();
-    private TagCluster aimCluster = null;
+    // This frame's alliance tags: upright ones, all on the up CELL, to aim at; and upside-down
+    // ones, on the down CELL, left out
+    private final TagCluster aimTags = new TagCluster();
+    private final List<LLResultTypes.FiducialResult> upsideDownTags = new ArrayList<>();
+    private boolean cornersMissing = false;
     private double tx = 0;
     private long lastResultMillis = -1;
 
@@ -85,7 +88,7 @@ public class HiveAim {
     }
 
     /**
-     * Re-reads the Limelight's latest result, picks out the up CELL's cluster from our alliance's
+     * Re-reads the Limelight's latest result, picks out the up CELL's tags from our alliance's
      * tags, and updates the remembered HIVE position from it. aimHeld is whether the driver is
      * holding the aim button. Call once per loop, in a loop that also calls follower.update().
      */
@@ -113,8 +116,9 @@ public class HiveAim {
     private void readCamera(boolean redAlliance) {
         LLResult result = limelight == null ? null : limelight.getLatestResult();
         if (result == null || !result.isValid() || result.getStaleness() >= MAX_RESULT_STALENESS) {
-            clusters.clear();
-            aimCluster = null;
+            aimTags.clear();
+            upsideDownTags.clear();
+            cornersMissing = false;
             tx = 0;
             return;
         }
@@ -129,18 +133,29 @@ public class HiveAim {
                 - Math.round(result.getCaptureLatency() + result.getTargetingLatency());
         Pose robotAtCapture = poseHistory.poseAt(captureMillis);
 
-        clusters.clear();
+        // Only one of our alliance's two CELLS is up at a time, so once the upside-down tags --
+        // on the CELL that's down -- are set aside, every tag left is on the up CELL
+        aimTags.clear();
+        upsideDownTags.clear();
+        cornersMissing = false;
         for (LLResultTypes.FiducialResult tag : result.getFiducialResults()) {
-            if (isAllianceTag(tag.getFiducialId(), redAlliance)) {
-                clusterFor(tag.getFiducialId()).add(tag, LimelightMount.tagFieldPosition(
+            if (!isAllianceTag(tag.getFiducialId(), redAlliance)) {
+                continue;
+            }
+            if (!TagCorners.hasCorners(tag)) {
+                cornersMissing = true;
+            }
+            if (TagCorners.isUpsideDown(tag)) {
+                upsideDownTags.add(tag);
+            } else {
+                aimTags.add(tag, LimelightMount.tagFieldPosition(
                         tag.getTargetPoseCameraSpace(), robotAtCapture));
             }
         }
-        aimCluster = chooseAimCluster();
-        tx = aimCluster == null ? 0 : aimCluster.middleTx();
+        tx = aimTags.isEmpty() ? 0 : aimTags.middleTx();
 
-        if (aimCluster != null) {
-            Pose middle = aimCluster.middleFieldPosition();
+        if (!aimTags.isEmpty()) {
+            Pose middle = aimTags.middleFieldPosition();
             boolean turningSlowly = Math.abs(Math.toDegrees(follower.getAngularVelocity()))
                     < MAX_MEMORY_UPDATE_TURN_RATE_DEG;
             if (middle != null && turningSlowly) {
@@ -150,7 +165,7 @@ public class HiveAim {
     }
 
     public boolean hasTarget() {
-        return aimCluster != null;
+        return !aimTags.isEmpty();
     }
 
     /**
@@ -193,8 +208,8 @@ public class HiveAim {
             String state = Math.abs(tx) < TOLERANCE_DEG ? "LOCKED (camera)"
                     : aimHeld ? "TURNING to tags (camera)"
                     : "tags in view (camera)";
-            return String.format(Locale.US, "%s, cell %s, %d tags, tx %.1f°%s",
-                    state, aimCluster.label(), aimCluster.size(), tx, describeIgnored());
+            return String.format(Locale.US, "%s, %d tags, tx %.1f°%s",
+                    state, aimTags.size(), tx, describeIgnored());
         }
         if (memory.isEmpty()) {
             return "no data" + describeIgnored();
@@ -207,64 +222,52 @@ public class HiveAim {
         double headingDeg = Utils.degrees(robot.getHeading());
         double targetDeg = Utils.degrees(
                 robot.getHeading() + Math.toRadians(memory.headingErrorDeg(robot)));
+        return String.format(Locale.US, "%s, heading %.0f° -> %.0f°%s",
+                state, headingDeg, targetDeg, describeIgnored());
+    }
+
+    /**
+     * Where the remembered HIVE is, for telemetry: how far away and which way to turn to face it
+     * from where the robot is now, and how long ago tags last updated it.
+     */
+    public String describeHive() {
+        if (limelight == null) {
+            return "n/a -- no camera";
+        }
+        if (memory.isEmpty()) {
+            return "not seen yet (needs tags in view, with Full 3D on in the Limelight)";
+        }
+        Pose robot = follower.getPose();
         Pose hive = memory.getPosition();
-        return String.format(Locale.US,
-                "%s (seen %.1fs ago at x %.0f y %.0f), heading %.0f° -> %.0f°%s",
-                state, memory.secondsSinceSeen(), hive.getX(), hive.getY(),
-                headingDeg, targetDeg, describeIgnored());
+        double turnDeg = memory.headingErrorDeg(robot);  // positive is counterclockwise (left)
+        long inches = Math.round(robot.distanceFrom(hive));
+        return String.format(Locale.US, "%d'%d\" away, %.0f° %s, seen %.1fs ago",
+                inches / 12, inches % 12, Math.abs(turnDeg), turnDeg >= 0 ? "left" : "right",
+                memory.secondsSinceSeen());
     }
 
     /** A line per visible alliance tag, for debugging; see TagDebugTelemetry. */
     public void addTagTelemetry(Telemetry telemetry) {
-        TagDebugTelemetry.add(telemetry, clusters, aimCluster);
-    }
-
-    /** "; ignoring 34-37 (upside down)" for each visible cluster seen upside down, else "". */
-    private String describeIgnored() {
-        StringBuilder result = new StringBuilder();
-        for (TagCluster cluster : clusters) {
-            if (cluster.orientation() == TagCluster.Orientation.DOWN) {
-                result.append("; ignoring ").append(cluster.label()).append(" (upside down)");
-            }
-        }
-        return result.toString();
-    }
-
-    private TagCluster clusterFor(int tagId) {
-        int index = TagCluster.clusterIndex(tagId);
-        for (TagCluster cluster : clusters) {
-            if (cluster.index() == index) {
-                return cluster;
-            }
-        }
-        TagCluster cluster = new TagCluster(index);
-        clusters.add(cluster);
-        return cluster;
+        TagDebugTelemetry.add(telemetry, aimTags, upsideDownTags);
     }
 
     /**
-     * Which visible cluster to aim at, or null for none. A cluster seen upside down is on the
-     * CELL that's down, so it's never aimed at. Otherwise a cluster confirmed up by its tag order
-     * beats one with too few tags in view to tell, and between equals the nearer one -- whose
-     * tags look bigger -- wins, since the down CELL is the far one.
+     * Notes for the end of the status line: which tags were left out for being upside down, e.g.
+     * "; ignoring upside-down 30, 33", and a warning when tags arrive without corners, so
+     * upside-down ones can't be spotted. "" when there's nothing to note.
      */
-    private TagCluster chooseAimCluster() {
-        TagCluster best = null;
-        for (TagCluster cluster : clusters) {
-            if (cluster.orientation() == TagCluster.Orientation.DOWN) {
-                continue;
-            }
-            if (best == null) {
-                best = cluster;
-                continue;
-            }
-            boolean up = cluster.orientation() == TagCluster.Orientation.UP;
-            boolean bestUp = best.orientation() == TagCluster.Orientation.UP;
-            if ((up && !bestUp) || (up == bestUp && cluster.meanArea() > best.meanArea())) {
-                best = cluster;
+    private String describeIgnored() {
+        StringBuilder result = new StringBuilder();
+        if (!upsideDownTags.isEmpty()) {
+            result.append("; ignoring upside-down");
+            for (int i = 0; i < upsideDownTags.size(); i++) {
+                result.append(i == 0 ? " " : ", ").append(upsideDownTags.get(i).getFiducialId());
             }
         }
-        return best;
+        if (cornersMissing) {
+            result.append("; NO CORNERS from Limelight -- can't spot upside-down tags");
+        }
+        return result.toString();
     }
 
     private static boolean isAllianceTag(int id, boolean redAlliance) {

@@ -7,10 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The visible tags from one CELL's AprilTag Cluster: four tags in a row on a single sticker, with
- * IDs increasing left to right as seen when the CELL is up. With two or more of them in view,
- * the order they appear in tells whether the CELL is up or down, and their known spacing locates
- * the middle of the cluster even when only some of its tags are visible.
+ * The visible tags of the up CELL's AprilTag Cluster: four tags in a row on a single sticker,
+ * with IDs increasing left to right. Their known spacing locates the middle of the cluster even
+ * when only some of its tags are visible.
  */
 final class TagCluster {
     private static final int FIRST_ID = 30;
@@ -18,35 +17,19 @@ final class TagCluster {
     // Each tag's offset from the cluster's middle along the row, in inches, by position in the
     // cluster (lowest ID first), left to right as seen when the CELL is up
     private static final double[] OFFSETS_IN = {-6.5, -2.75, 2.75, 6.5};
-    // Below this many degrees of tx per inch along the row, the row is seen too nearly end-on to
-    // tell which way it runs
-    private static final double MIN_ORDER_SLOPE = 0.1;
 
-    enum Orientation { UP, DOWN, UNKNOWN }
-
-    /** Which cluster a HIVE tag ID belongs to: 0 for 30-33, 1 for 34-37, and so on. */
-    static int clusterIndex(int tagId) {
-        return (tagId - FIRST_ID) / TAGS_PER_CLUSTER;
-    }
-
-    private final int index;
-    private final int firstId;
     private final List<LLResultTypes.FiducialResult> tags = new ArrayList<>();
     private final List<Pose> fieldPositions = new ArrayList<>();
-
-    TagCluster(int index) {
-        this.index = index;
-        firstId = FIRST_ID + index * TAGS_PER_CLUSTER;
-    }
-
-    int index() {
-        return index;
-    }
 
     /** Adds a visible tag, with its field position, or null if it has no 3D position. */
     void add(LLResultTypes.FiducialResult tag, Pose fieldPosition) {
         tags.add(tag);
         fieldPositions.add(fieldPosition);
+    }
+
+    void clear() {
+        tags.clear();
+        fieldPositions.clear();
     }
 
     List<LLResultTypes.FiducialResult> getTags() {
@@ -57,32 +40,8 @@ final class TagCluster {
         return tags.size();
     }
 
-    /** The cluster's ID range, e.g. "30-33". */
-    String label() {
-        return firstId + "-" + (firstId + TAGS_PER_CLUSTER - 1);
-    }
-
-    /** Average tag area in the image; bigger means nearer. */
-    double meanArea() {
-        double sum = 0;
-        for (LLResultTypes.FiducialResult tag : tags) {
-            sum += tag.getTargetArea();
-        }
-        return sum / tags.size();
-    }
-
-    /** UP or DOWN from the left-to-right order of the visible tags; UNKNOWN with fewer than two. */
-    Orientation orientation() {
-        if (tags.size() < 2) {
-            return Orientation.UNKNOWN;
-        }
-        double slope = fitTx()[1];
-        if (slope > MIN_ORDER_SLOPE) {
-            return Orientation.UP;
-        } else if (slope < -MIN_ORDER_SLOPE) {
-            return Orientation.DOWN;
-        }
-        return Orientation.UNKNOWN;
+    boolean isEmpty() {
+        return tags.isEmpty();
     }
 
     /**
@@ -90,7 +49,13 @@ final class TagCluster {
      * offsets along the row. With only one tag visible, the angle to that tag.
      */
     double middleTx() {
-        return fitTx()[0];
+        List<Double> offsets = new ArrayList<>();
+        List<Double> txs = new ArrayList<>();
+        for (LLResultTypes.FiducialResult tag : tags) {
+            offsets.add(offsetOf(tag));
+            txs.add(tag.getTargetXDegrees());
+        }
+        return fitLineAtZero(offsets, txs);
     }
 
     /**
@@ -113,29 +78,20 @@ final class TagCluster {
         if (offsets.isEmpty()) {
             return null;
         }
-        return new Pose(fitLine(offsets, xs)[0], fitLine(offsets, ys)[0]);
+        return new Pose(fitLineAtZero(offsets, xs), fitLineAtZero(offsets, ys));
     }
 
-    /** {tx at the middle, tx change per inch along the row} for the visible tags. */
-    private double[] fitTx() {
-        List<Double> offsets = new ArrayList<>();
-        List<Double> txs = new ArrayList<>();
-        for (LLResultTypes.FiducialResult tag : tags) {
-            offsets.add(offsetOf(tag));
-            txs.add(tag.getTargetXDegrees());
-        }
-        return fitLine(offsets, txs);
-    }
-
-    private double offsetOf(LLResultTypes.FiducialResult tag) {
-        return OFFSETS_IN[tag.getFiducialId() - firstId];
+    /** The tag's offset along the row, from its place in its cluster's IDs (30-33: 0-3, ...). */
+    private static double offsetOf(LLResultTypes.FiducialResult tag) {
+        return OFFSETS_IN[(tag.getFiducialId() - FIRST_ID) % TAGS_PER_CLUSTER];
     }
 
     /**
-     * Least-squares line through (x, y) points: {y at x = 0, slope}. With a single point, or all
-     * points at the same x, the slope is 0 and the line runs through their average y.
+     * Draws the best-fitting straight line through the (x, y) points and returns its y at x = 0
+     * -- here, the value at the cluster's middle, which has no tag of its own. With a single
+     * point, or all points at the same x, that's just their average y.
      */
-    private static double[] fitLine(List<Double> xs, List<Double> ys) {
+    private static double fitLineAtZero(List<Double> xs, List<Double> ys) {
         int n = xs.size();
         double meanX = 0;
         double meanY = 0;
@@ -150,6 +106,6 @@ final class TagCluster {
             variance += (xs.get(i) - meanX) * (xs.get(i) - meanX);
         }
         double slope = variance == 0 ? 0 : covariance / variance;
-        return new double[]{meanY - slope * meanX, slope};
+        return meanY - slope * meanX;
     }
 }

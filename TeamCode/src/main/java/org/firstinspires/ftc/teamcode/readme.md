@@ -21,8 +21,9 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
 - `routes/` -- one class per route (`Route`), pairing its pasted paths with what the robot does at
   the start and after each path, using the helpers in `RouteActions`.
 - `subsystems/` -- robot mechanisms: `Shooter`, and `HiveAim` (Limelight auto-aim) with its helpers
-  `TagCluster`, `HiveMemory`, `LimelightMount`, and `TagDebugTelemetry`.
-- `util/` -- general helpers: the INIT settings menu (`InitMenu`), follower telemetry, pose
+  `TagCorners`, `TagCluster`, `HiveMemory`, `LimelightMount`, and `TagDebugTelemetry`.
+- `util/` -- general helpers: the INIT settings menu (`InitMenu`), the INFO/DEBUG telemetry switch
+  (`LogLevel`; X + d-pad left/right on either gamepad, in both OpModes), follower telemetry, pose
   history, loop timing, and `Utils`.
 - `com/pedropathing/` (next to `org/`) -- a small compatibility layer that lets the path visualizer's
   output, written for Pedro Pathing 3.0, compile against 2.0.2. **If this project upgrades to Pedro
@@ -36,6 +37,17 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
 | `pinpoint` | goBILDA Pinpoint | yes |
 | `limelight` | Limelight 3A | no -- teleop auto-aim is disabled without it |
 | `shooter` | shooter motor | no -- teleop shooter controls are disabled without it |
+
+## Limelight pipeline settings
+
+Auto-aim uses pipeline slot 4, set up in the Limelight's web interface (connect the Limelight to a
+laptop by USB and browse to `http://limelight.local:5801`):
+
+- **Standard tab:** Family *AprilTag Classic 36h11*, Marker Size **82.55 mm** (3.25 in).
+- **Advanced tab:** **Full 3D** on. Without it, auto-aim still works on tags in view but can't
+  remember where the HIVE is.
+- **Output tab:** corner output on. Without it, upside-down tags can't be spotted, and the Aim
+  telemetry line warns "NO CORNERS".
 
 ## Adding an autonomous route
 

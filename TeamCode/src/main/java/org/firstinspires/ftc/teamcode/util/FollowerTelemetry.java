@@ -43,9 +43,16 @@ public class FollowerTelemetry {
                 goal.getX(), goal.getY(), Utils.degrees(goal.getHeading()));
     }
 
-    /** Adds loop time and Pinpoint status, plus a warning if the pose has gone NaN. */
+    /** Adds loop time and Pinpoint status. */
     public void addHealth(double loopMs) {
         telemetry.addData("Health", "loop %.0f ms, Pinpoint %s", loopMs, pinpointStatus());
+    }
+
+    /**
+     * Adds a warning if the pose has gone NaN, and nothing otherwise. Add it at the bottom of the
+     * screen, so the warning appearing doesn't push other lines down.
+     */
+    public void addWarnings() {
         if (follower.isLocalizationNAN()) {
             telemetry.addLine("!! POSE IS NaN -- position can't be trusted !!");
         }

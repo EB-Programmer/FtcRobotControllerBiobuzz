@@ -9,6 +9,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
+import org.firstinspires.ftc.teamcode.util.LogLevel;
 import org.firstinspires.ftc.teamcode.util.Utils;
 
 import java.util.List;
@@ -33,6 +34,10 @@ import java.util.List;
  *                   HIVE was last seen. If it gets there and still can't see any tags,
  *                   gamepad 1 can turn again until Y is released or tags come into view
  *
+ * Either gamepad:
+ *   X + Dpad Left:  Telemetry at INFO (the default)
+ *   X + Dpad Right: Telemetry at DEBUG (adds per-tag, motor power, and joystick lines)
+ *
  * The shooter and the Limelight are optional hardware: without a "shooter" motor or a
  * "limelight" configured, everything else still works and the shooter or auto-aim controls do
  * nothing.
@@ -52,6 +57,7 @@ public class BiobuzzTeleop extends LinearOpMode {
     private Mecanum drivetrain;
     private Shooter shooter;
     private HiveAim hiveAim;
+    private final LogLevel logLevel = new LogLevel();
     private boolean fastDriveMode = true;
     private boolean redAlliance = true;
 
@@ -62,10 +68,12 @@ public class BiobuzzTeleop extends LinearOpMode {
         // Wait for the game to start (driver presses START). Alliance can be chosen meanwhile.
         while (opModeInInit()) {
             toggleAlliance();
+            logLevel.update(gamepad1, gamepad2);
             follower.update();  // keeps odometry current, for remembering where the HIVE is
             hiveAim.update(redAlliance, false);
             addStatusTelemetry();
             telemetry.addData(">", "Press gamepad2 B to change alliance. Press START.");
+            logLevel.addTelemetry(telemetry);
             telemetry.update();
         }
         if (isStopRequested()) {
@@ -74,10 +82,15 @@ public class BiobuzzTeleop extends LinearOpMode {
         }
 
         follower.startTeleopDrive();
+        // setTeleOpDrive() reads the robot's heading from what the follower's last update() saw
+        // once teleop drive is on, so one update() is needed before drive() calls it the first
+        // time -- otherwise that first call hits a null pose and crashes
+        follower.update();
 
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
             toggleAlliance();
+            logLevel.update(gamepad1, gamepad2);
             hiveAim.update(redAlliance, gamepad2.y);
             drive();
             shoot();
@@ -158,24 +171,30 @@ public class BiobuzzTeleop extends LinearOpMode {
         }
         telemetry.addData("Aim", "%s, %s", redAlliance ? "RED" : "BLUE",
                 hiveAim.describeStatus());
-        hiveAim.addTagTelemetry(telemetry);
+        telemetry.addData("HIVE", hiveAim.describeHive());
+        if (logLevel.isDebug()) {
+            hiveAim.addTagTelemetry(telemetry);
+        }
     }
 
     private void updateTelemetry() {
         addStatusTelemetry();
         telemetry.addData("Fast Drive Mode", fastDriveMode);
 
-        List<DcMotorEx> motors = drivetrain.getMotors();
-        telemetry.addData("Front Left Power", motors.get(0).getPower());
-        telemetry.addData("Front Right Power", motors.get(2).getPower());
-        telemetry.addData("Rear Left Power", motors.get(1).getPower());
-        telemetry.addData("Rear Right Power", motors.get(3).getPower());
+        if (logLevel.isDebug()) {
+            List<DcMotorEx> motors = drivetrain.getMotors();
+            telemetry.addData("Front Left Power", motors.get(0).getPower());
+            telemetry.addData("Front Right Power", motors.get(2).getPower());
+            telemetry.addData("Rear Left Power", motors.get(1).getPower());
+            telemetry.addData("Rear Right Power", motors.get(3).getPower());
 
-        telemetry.addData("gamepad1 LeftStick Y (-drive)", gamepad1.left_stick_y);
-        telemetry.addData("gamepad1 LeftStick X (strafe)", gamepad1.left_stick_x);
-        telemetry.addData("gamepad1 RightTrigger (turn)", gamepad1.right_trigger);
-        telemetry.addData("gamepad1 LeftTrigger (-turn)", gamepad1.left_trigger);
+            telemetry.addData("gamepad1 LeftStick Y (-drive)", gamepad1.left_stick_y);
+            telemetry.addData("gamepad1 LeftStick X (strafe)", gamepad1.left_stick_x);
+            telemetry.addData("gamepad1 RightTrigger (turn)", gamepad1.right_trigger);
+            telemetry.addData("gamepad1 LeftTrigger (-turn)", gamepad1.left_trigger);
+        }
 
+        logLevel.addTelemetry(telemetry);
         telemetry.update();
     }
 }
