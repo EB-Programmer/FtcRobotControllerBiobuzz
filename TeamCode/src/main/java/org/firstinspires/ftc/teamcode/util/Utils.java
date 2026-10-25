@@ -33,4 +33,10 @@ public final class Utils {
         telemetry.addData(name, value);
         return value;
     }
+
+    /** An angle in radians as degrees, normalized to [0, 360). */
+    public static double degrees(double radians) {
+        double degrees = Math.toDegrees(radians) % 360;
+        return degrees < 0 ? degrees + 360 : degrees;
+    }
 }

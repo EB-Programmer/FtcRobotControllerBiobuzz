@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.routes;
 
 import com.pedropathing.paths.Path;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,8 +45,10 @@ public abstract class Route {
      * Collects path1(), path2(), ... from the pasted paths object by the number in each method's
      * name, stopping at the first missing one -- that's the naming convention the online path
      * visualizer uses, so any pasted route runs without its path count being wired in by hand.
+     *
+     * @throws IllegalStateException naming the method, if one of them can't be called or throws
      */
-    public final List<Path> buildPaths() throws ReflectiveOperationException {
+    public final List<Path> buildPaths() {
         List<Path> result = new ArrayList<>();
         for (int i = 1; ; i++) {
             Method method;
@@ -54,7 +57,15 @@ public abstract class Route {
             } catch (NoSuchMethodException e) {
                 break;
             }
-            result.add((Path) method.invoke(paths));
+            try {
+                result.add((Path) method.invoke(paths));
+            } catch (InvocationTargetException e) {
+                throw new IllegalStateException(method.getName() + "() threw " + e.getCause(),
+                        e.getCause());
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException(
+                        "can't call " + method.getName() + "() -- is the pasted class public?", e);
+            }
         }
         return result;
     }

@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
+import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.Utils;
 
 import java.util.List;
@@ -27,10 +28,14 @@ import java.util.List;
  *   Dpad Up/Down:   Increase / decrease shooter power
  *   A:
  *   B:              Toggle alliance (Red / Blue). Can be pressed during INIT
- *   Y:              Auto-aim at the HIVE AprilTags (hold). Overrides turning from gamepad 1
+ *   Y:              Auto-aim at the HIVE (hold). Overrides turning from gamepad 1. Aims with
+ *                   the HIVE AprilTags when they're visible, otherwise turns toward where the
+ *                   HIVE was last seen. If it gets there and still can't see any tags,
+ *                   gamepad 1 can turn again until Y is released or tags come into view
  *
- * The shooter is optional hardware: without a "shooter" motor configured, everything else
- * still works and the shooter controls do nothing.
+ * The shooter and the Limelight are optional hardware: without a "shooter" motor or a
+ * "limelight" configured, everything else still works and the shooter or auto-aim controls do
+ * nothing.
  */
 
 @TeleOp(name = "EB Teleop", group = "EBBiobuzz")
@@ -43,12 +48,12 @@ public class BiobuzzTeleop extends LinearOpMode {
     private static double shooterPower = 0.5;
 
     private Follower follower;
+    private FollowerTelemetry followerTelemetry;
     private Mecanum drivetrain;
     private Shooter shooter;
     private HiveAim hiveAim;
     private boolean fastDriveMode = true;
     private boolean redAlliance = true;
-    private boolean aiming = false;
 
     @Override
     public void runOpMode() {
@@ -57,7 +62,8 @@ public class BiobuzzTeleop extends LinearOpMode {
         // Wait for the game to start (driver presses START). Alliance can be chosen meanwhile.
         while (opModeInInit()) {
             toggleAlliance();
-            hiveAim.update(redAlliance);
+            follower.update();  // keeps odometry current, for remembering where the HIVE is
+            hiveAim.update(redAlliance, false);
             addStatusTelemetry();
             telemetry.addData(">", "Press gamepad2 B to change alliance. Press START.");
             telemetry.update();
@@ -72,7 +78,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         // run until the end of the match (driver presses STOP)
         while (opModeIsActive()) {
             toggleAlliance();
-            hiveAim.update(redAlliance);
+            hiveAim.update(redAlliance, gamepad2.y);
             drive();
             shoot();
             updateTelemetry();
@@ -83,9 +89,10 @@ public class BiobuzzTeleop extends LinearOpMode {
 
     private void initHardware() {
         follower = Constants.createFollower(hardwareMap);
+        followerTelemetry = new FollowerTelemetry(follower, telemetry);
         drivetrain = (Mecanum) follower.getDrivetrain();
         shooter = new Shooter(hardwareMap);
-        hiveAim = new HiveAim(hardwareMap);
+        hiveAim = new HiveAim(hardwareMap, follower);
 
         // Started during init so the driver can check that the tags are visible before START
         hiveAim.start();
@@ -112,9 +119,9 @@ public class BiobuzzTeleop extends LinearOpMode {
         double strafe = -gamepad1.left_stick_x;
         double turn = gamepad1.left_trigger - gamepad1.right_trigger;
 
-        // Auto-aim replaces the driver's turn input while gamepad2 Y is held and tags are visible
-        aiming = gamepad2.y && hiveAim.hasTarget();
-        if (aiming) {
+        // Auto-aim replaces the driver's turn input while gamepad2 Y is held, when it has
+        // something to aim at (see HiveAim.isControllingTurn)
+        if (hiveAim.isControllingTurn()) {
             turn = hiveAim.getTurn();
         }
 
@@ -141,16 +148,16 @@ public class BiobuzzTeleop extends LinearOpMode {
         shooter.setPower(gamepad2.right_trigger > 0.25 ? shooterPower : 0);
     }
 
-    /** Shooter and aim status, shown both during init and while driving. */
+    /** Pinpoint, shooter, and aim status, shown both during init and while driving. */
     private void addStatusTelemetry() {
+        telemetry.addData("Pinpoint", followerTelemetry.pinpointStatus());
         if (shooter.isPresent()) {
             telemetry.addData("Shooter RPM", "%.0f", shooter.getRpm());
         } else {
             telemetry.addData("Shooter", "not found -- shooter controls disabled");
         }
-        telemetry.addData("Aim", "%s, %d tags, tx %.1f°%s",
-                redAlliance ? "RED" : "BLUE", hiveAim.getTagCount(), hiveAim.getTx(),
-                aiming ? ", AIMING" : "");
+        telemetry.addData("Aim", "%s, %s", redAlliance ? "RED" : "BLUE",
+                hiveAim.describeStatus());
         hiveAim.addTagTelemetry(telemetry);
     }
 

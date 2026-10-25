@@ -25,19 +25,27 @@ public class FollowerTelemetry {
                 : null;
     }
 
+    /**
+     * The Pinpoint's status as of the last follower.update(), e.g. READY or
+     * FAULT_NO_PODS_DETECTED -- worth showing during init, since a Pinpoint that's configured but
+     * unplugged or faulted doesn't stop an OpMode from starting.
+     */
+    public String pinpointStatus() {
+        return pinpoint == null ? "n/a" : String.valueOf(pinpoint.getDeviceStatus());
+    }
+
     /** Adds the robot's current pose and the goal pose it's driving toward or holding. */
     public void addPose(Pose goal) {
         Pose pose = follower.getPose();
         telemetry.addData("Pose", "x %.1f  y %.1f  h %.1f°",
-                pose.getX(), pose.getY(), degrees(pose.getHeading()));
+                pose.getX(), pose.getY(), Utils.degrees(pose.getHeading()));
         telemetry.addData("Goal", "x %.1f  y %.1f  h %.1f°",
-                goal.getX(), goal.getY(), degrees(goal.getHeading()));
+                goal.getX(), goal.getY(), Utils.degrees(goal.getHeading()));
     }
 
     /** Adds loop time and Pinpoint status, plus a warning if the pose has gone NaN. */
     public void addHealth(double loopMs) {
-        telemetry.addData("Health", "loop %.0f ms, Pinpoint %s",
-                loopMs, pinpoint == null ? "n/a" : pinpoint.getDeviceStatus());
+        telemetry.addData("Health", "loop %.0f ms, Pinpoint %s", loopMs, pinpointStatus());
         if (follower.isLocalizationNAN()) {
             telemetry.addLine("!! POSE IS NaN -- position can't be trusted !!");
         }
@@ -60,10 +68,5 @@ public class FollowerTelemetry {
                 pose.distanceFrom(goal),
                 Math.toDegrees(MathFunctions.getSmallestAngleDifference(
                         pose.getHeading(), goal.getHeading())));
-    }
-
-    /** Heading in degrees, normalized to [0, 360). */
-    public static double degrees(double radians) {
-        return Math.toDegrees(MathFunctions.normalizeAngle(radians));
     }
 }

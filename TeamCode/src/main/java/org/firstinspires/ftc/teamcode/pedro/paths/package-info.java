@@ -13,8 +13,8 @@
  *       ({@code public class FarGoalPath}).</li>
  *   <li>Create a matching Route in the routes package, e.g. {@code FarGoalRoute}, whose
  *       constructor calls {@code super(new FarGoalPath())} -- see UpCellRoute.</li>
- *   <li>Add {@code FarGoalRoute.class} to {@code BiobuzzAuton.ROUTES} so it shows up in the
- *       init menu.</li>
+ *   <li>Add {@code new FarGoalRoute()} to the {@code routes} list at the top of BiobuzzAuton so
+ *       it shows up in the init menu.</li>
  * </ol>
  *
  * BiobuzzAuton runs a route's path1(), path2(), ... in order and stops at the first missing

@@ -15,7 +15,6 @@ import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.InitMenu;
 import org.firstinspires.ftc.teamcode.util.LoopTimer;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -23,16 +22,16 @@ import java.util.Locale;
 /**
  * Runs a Route from the routes package: its atStart() actions, then path1(), path2(), ... in
  * order, each followed by its afterPath() actions while the robot holds that path's end pose.
- * During init the driver picks the route (the first one in ROUTES, unless changed) from a
+ * During init the driver picks the route (the first one in routes, unless changed) from a
  * settings menu on the d-pad. See pedro/paths for how to add a new route from the online path
  * visualizer.
  */
-@Autonomous(name = "EB Auton", group = "EBBiobuzz")
+@Autonomous(name = "EB Auton", group = "EBBiobuzz", preselectTeleOp = "EB Teleop")
 public class BiobuzzAuton extends LinearOpMode {
 
     /** Every Route the init menu offers, listed by class name. The first is the default. */
-    private static final Class<?>[] ROUTES = {
-            UpCellRoute.class,
+    private final Route[] routes = {
+            new UpCellRoute(),
     };
 
     private static final double MAX_POWER = 0.5;
@@ -65,10 +64,11 @@ public class BiobuzzAuton extends LinearOpMode {
     /** Shows the setup menu until Start (or Stop), loading whichever route is chosen. */
     private void runInitMenu() {
         InitMenu menu = new InitMenu("EB Auton setup");
-        InitMenu.Choice<Class<?>> routeChoice =
-                menu.choice("Route", ROUTES, Class::getSimpleName);
+        InitMenu.Choice<Route> routeChoice =
+                menu.choice("Route", routes, route -> route.getClass().getSimpleName());
 
         while (opModeInInit()) {
+            follower.update();  // keeps odometry, and so the Pinpoint status below, current
             menu.update(gamepad1, gamepad2, telemetry);
             if (routeChoice.changed()) {
                 loadRoute(routeChoice.get());
@@ -79,42 +79,37 @@ public class BiobuzzAuton extends LinearOpMode {
                 telemetry.addData("Status", "ROUTE ERROR -- robot won't move");
                 telemetry.addLine(routeError);
             }
+            telemetry.addData("Pinpoint", followerTelemetry.pinpointStatus());
             telemetry.update();
         }
     }
 
     /**
-     * Builds the chosen route and its paths and moves the follower's starting pose to the
-     * route's start. The follower already exists by now, so each path picks up
+     * Builds the chosen route's paths and moves the follower's starting pose to the route's
+     * start. The follower already exists by now, so each path picks up
      * Constants.pathConstraints, which createFollower installs as the default constraints for
      * newly constructed paths.
      *
-     * A route that can't be built leaves pathSequence empty, so the robot stays put, and sets
-     * routeError so the problem shows on the Driver Station during init instead of crashing.
+     * A route whose paths can't be built leaves pathSequence empty, so the robot stays put, and
+     * sets routeError so the problem shows on the Driver Station during init instead of crashing.
      */
-    private void loadRoute(Class<?> routeClass) {
-        routeName = routeClass.getSimpleName();
+    private void loadRoute(Route chosen) {
+        routeName = chosen.getClass().getSimpleName();
         route = null;
         pathSequence = new ArrayList<>();
         routeError = null;
         try {
-            Object instance = routeClass.getDeclaredConstructor().newInstance();
-            if (!(instance instanceof Route)) {
-                routeError = routeName + " isn't a Route -- ROUTES should list classes from the"
-                        + " routes package, not the pasted paths";
-                return;
-            }
-            List<Path> paths = ((Route) instance).buildPaths();
+            List<Path> paths = chosen.buildPaths();
             if (paths.isEmpty()) {
                 routeError = routeName + "'s paths have no path1() method";
                 return;
             }
-            route = (Route) instance;
+            route = chosen;
             pathSequence = paths;
             follower.setStartingPose(pathSequence.get(0).getPose(0));
-        } catch (Exception e) {
-            Throwable cause = e instanceof InvocationTargetException ? e.getCause() : e;
-            routeError = "Couldn't build " + routeName + ": " + cause;
+        } catch (RuntimeException e) {
+            String reason = e.getMessage() != null ? e.getMessage() : e.toString();
+            routeError = "Couldn't build " + routeName + "'s paths: " + reason;
         }
     }
 
