@@ -1,6 +1,8 @@
 /**
- * One class per autonomous route, each pasted from the online path visualizer
- * (https://visualizer.pedropathing.com/).
+ * The paths for each autonomous route, one class per route, pasted from the online path
+ * visualizer (https://visualizer.pedropathing.com/). These files hold only the pasted code, so a
+ * route can be re-pasted after changing it in the visualizer; what the robot does between paths
+ * lives in the matching Route class in the routes package.
  *
  * To add a route:
  * <ol>
@@ -9,7 +11,9 @@
  *       then paste the visualizer's generated code below it.</li>
  *   <li>Rename the pasted {@code public class Paths} to match the file name
  *       ({@code public class FarGoalPath}).</li>
- *   <li>Add {@code FarGoalPath.class} to {@code BiobuzzAuton.ROUTES} so it shows up in the
+ *   <li>Create a matching Route in the routes package, e.g. {@code FarGoalRoute}, whose
+ *       constructor calls {@code super(new FarGoalPath())} -- see UpCellRoute.</li>
+ *   <li>Add {@code FarGoalRoute.class} to {@code BiobuzzAuton.ROUTES} so it shows up in the
  *       init menu.</li>
  * </ol>
  *
