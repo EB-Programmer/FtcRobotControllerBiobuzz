@@ -1,7 +1,5 @@
 package org.firstinspires.ftc.teamcode.routes;
 
-import org.firstinspires.ftc.teamcode.pedro.paths.UpCellPath;
-
 public class UpCellRoute extends Route {
     public UpCellRoute() {
         super(new UpCellPath());

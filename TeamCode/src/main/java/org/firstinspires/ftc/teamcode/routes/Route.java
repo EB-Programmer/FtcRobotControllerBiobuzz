@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * An autonomous route: a set of paths pasted from the online path visualizer (see pedro/paths)
+ * An autonomous route: a set of paths pasted from the online path visualizer (see package-info.java)
  * plus what the robot does around them. A subclass passes its pasted paths object to the
  * constructor and overrides atStart() and/or afterPath() for anything beyond driving; both do
  * nothing by default.

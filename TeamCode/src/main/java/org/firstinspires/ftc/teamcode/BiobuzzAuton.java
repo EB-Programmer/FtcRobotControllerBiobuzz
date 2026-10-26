@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.teamcode.routes.DownCellRoute;
 import org.firstinspires.ftc.teamcode.routes.Route;
 import org.firstinspires.ftc.teamcode.routes.RouteActions;
 import org.firstinspires.ftc.teamcode.routes.UpCellRoute;
@@ -27,7 +28,7 @@ import java.util.Locale;
  * order, each followed by its afterPath() actions while the robot holds that path's end pose.
  * During init the driver picks the alliance and the route (the first one in routes, unless
  * changed) from a settings menu on the d-pad. The alliance and where the robot ends up are handed
- * on to EB Teleop through MatchSettings. See pedro/paths for how to add a new route from the
+ * on to EB Teleop through MatchSettings. See the routes package for how to add a new route from the
  * online path visualizer. On either gamepad, X + d-pad left/right switches telemetry between INFO and DEBUG
  * (see LogLevel).
  */
@@ -37,6 +38,7 @@ public class BiobuzzAuton extends LinearOpMode {
     /** Every Route the init menu offers, listed by class name. The first is the default. */
     private final Route[] routes = {
             new UpCellRoute(),
+            new DownCellRoute(),
     };
 
     private static final double MAX_POWER = 0.5;
