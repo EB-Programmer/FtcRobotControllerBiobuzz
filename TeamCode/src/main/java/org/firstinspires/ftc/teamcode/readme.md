@@ -37,7 +37,7 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
 |---|---|---|
 | `leftFrontDrive`, `rightFrontDrive`, `leftRearDrive`, `rightRearDrive` | drive motors | yes |
 | `pinpoint` | goBILDA Pinpoint | yes |
-| `limelight` | Limelight 3A | no -- teleop auto-aim is disabled without it |
+| `limelight` | Limelight 3A | no -- teleop auto-aim is disabled and route `waitForCellReady()` calls are skipped without it |
 | `shooter` | shooter motor | no -- teleop shooter controls are disabled without it |
 | `intake` | intake motor | no -- intake controls and route intake actions do nothing without it |
 

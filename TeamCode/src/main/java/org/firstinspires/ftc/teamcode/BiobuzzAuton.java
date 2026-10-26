@@ -12,6 +12,7 @@ import org.firstinspires.ftc.teamcode.routes.DownCellRoute;
 import org.firstinspires.ftc.teamcode.routes.Route;
 import org.firstinspires.ftc.teamcode.routes.RouteActions;
 import org.firstinspires.ftc.teamcode.routes.UpCellRoute;
+import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.InitMenu;
@@ -46,6 +47,8 @@ public class BiobuzzAuton extends LinearOpMode {
     private Follower follower;
     private FollowerTelemetry followerTelemetry;
     private Intake intake;
+    private HiveAim hiveAim;
+    private boolean redAlliance;
     private Route route;
     private String routeName;
     private List<Path> pathSequence = new ArrayList<>();
@@ -65,15 +68,22 @@ public class BiobuzzAuton extends LinearOpMode {
         follower = Constants.createFollower(hardwareMap);
         followerTelemetry = new FollowerTelemetry(follower, telemetry);
         intake = new Intake(hardwareMap);
+        hiveAim = new HiveAim(hardwareMap, follower);
+        hiveAim.start();  // during init, so the camera is already sending results at Start
         runInitMenu();
-        if (isStopRequested()) return;
-        MatchSettings.redAlliance = redAllianceChoice.get();
+        if (isStopRequested()) {
+            hiveAim.stop();
+            return;
+        }
+        redAlliance = redAllianceChoice.get();
+        MatchSettings.redAlliance = redAlliance;
 
         List<String> results = runRoute();
         intake.set(Intake.State.OFF);  // a route can leave it running after its last path
         // Saved even when Stop cut the route short, so teleop starts from wherever the robot is
         MatchSettings.autonEndPose = follower.getPose();
         showSummaryUntilStop(results);
+        hiveAim.stop();
     }
 
     /** Shows the setup menu until Start (or Stop), loading whichever route is chosen. */
@@ -100,6 +110,8 @@ public class BiobuzzAuton extends LinearOpMode {
             telemetry.addData("Pinpoint", followerTelemetry.pinpointStatus());
             telemetry.addData("Intake", intake.isPresent()
                     ? "found" : "not found -- route intake actions do nothing");
+            telemetry.addData("Limelight", hiveAim.hasCamera()
+                    ? "found" : "not found -- waitForCellReady() is skipped");
             logLevel.addTelemetry(telemetry);
             telemetry.update();
         }
@@ -144,7 +156,8 @@ public class BiobuzzAuton extends LinearOpMode {
         if (route == null) {
             return results;
         }
-        routeActions = new RouteActions(this::opModeIsActive, this::holdLoop, intake);
+        routeActions = new RouteActions(this::opModeIsActive, this::holdLoop, autonTimer,
+                intake, hiveAim);
 
         Pose startPose = pathSequence.get(0).getPose(0);
         follower.holdPoint(startPose);
@@ -181,6 +194,7 @@ public class BiobuzzAuton extends LinearOpMode {
             // clears the follower's stuck flag.
             stalled = followerTelemetry.isStalled();
             follower.update();
+            hiveAim.update(redAlliance, false);
             logLevel.update(gamepad1, gamepad2);
             addFollowingTelemetry(pathIndex, path, loopTimer.lap());
             telemetry.update();
@@ -202,12 +216,17 @@ public class BiobuzzAuton extends LinearOpMode {
     /** One pass of the loop that runs while route actions wait: hold position and report. */
     private void holdLoop(String activity) {
         follower.update();
+        hiveAim.update(redAlliance, false);
         logLevel.update(gamepad1, gamepad2);
         double loopMs = loopTimer.lap();
 
         telemetry.addData("Step", "%s: %s,   %.1fs / 30s total",
                 actionStep, activity, autonTimer.seconds());
         followerTelemetry.addPose(holdPose);
+        if (logLevel.isDebug()) {
+            telemetry.addData("CELL", hiveAim.describeCellReadiness());
+            hiveAim.addTagTelemetry(telemetry);
+        }
         followerTelemetry.addHealth(loopMs);
         logLevel.addTelemetry(telemetry);
         followerTelemetry.addWarnings();
@@ -229,6 +248,7 @@ public class BiobuzzAuton extends LinearOpMode {
                     Math.toDegrees(follower.getHeadingError()));
             telemetry.addData("Progress", "%.0f%%, %.1f in left",
                     follower.getPathCompletion() * 100, follower.getDistanceRemaining());
+            hiveAim.addTagTelemetry(telemetry);
         }
         followerTelemetry.addHealth(loopMs);
         logLevel.addTelemetry(telemetry);

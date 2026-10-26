@@ -27,6 +27,9 @@ import java.util.Locale;
  * turning back to the driver -- see isControllingTurn() -- until the aim button is released or
  * tags come into view.
  *
+ * It also tracks whether the up CELL has stopped moving, for an auton waiting on a HIVE TIP --
+ * see CellReadiness and isCellReady().
+ *
  * The Limelight is optional hardware: without one named "limelight" configured, aiming has
  * nothing to go on and never takes over turning.
  */
@@ -57,6 +60,7 @@ public class HiveAim {
     // ones, on the down CELL, left out
     private final TagCluster aimTags = new TagCluster();
     private final List<LLResultTypes.FiducialResult> upsideDownTags = new ArrayList<>();
+    private final CellReadiness cellReadiness = new CellReadiness();
     private boolean cornersMissing = false;
     private double tx = 0;
     private long lastResultMillis = -1;
@@ -98,6 +102,7 @@ public class HiveAim {
         if (memoryRedAlliance == null || memoryRedAlliance != redAlliance) {
             memoryRedAlliance = redAlliance;
             memory.clear();
+            cellReadiness.clear();
             lastResultMillis = -1;  // so the current frame is re-read for the new alliance's tags
         }
 
@@ -119,6 +124,7 @@ public class HiveAim {
             aimTags.clear();
             upsideDownTags.clear();
             cornersMissing = false;
+            cellReadiness.clear();
             tx = 0;
             return;
         }
@@ -153,6 +159,11 @@ public class HiveAim {
             }
         }
         tx = aimTags.isEmpty() ? 0 : aimTags.middleTx();
+        if (aimTags.isEmpty()) {
+            cellReadiness.clear();
+        } else {
+            cellReadiness.addFrame(captureMillis, aimTags.middleTy());
+        }
 
         if (!aimTags.isEmpty()) {
             Pose middle = aimTags.middleFieldPosition();
@@ -164,6 +175,26 @@ public class HiveAim {
         }
     }
 
+    /**
+     * Whether the up CELL's tags have been in view and still for a moment (see CellReadiness):
+     * the CELL has finished swinging up after a HIVE TIP, or wasn't moving to begin with. Only
+     * meaningful while the robot itself holds still.
+     */
+    public boolean isCellReady() {
+        return cellReadiness.isReady();
+    }
+
+    /** How close the up CELL is to counting as ready, for telemetry; see isCellReady(). */
+    public String describeCellReadiness() {
+        return cellReadiness.describe();
+    }
+
+    /** Whether a Limelight is configured; without one, hasTarget() is always false. */
+    public boolean hasCamera() {
+        return limelight != null;
+    }
+
+    /** Whether any of our alliance's upright HIVE tags -- the ones aiming uses -- are in view. */
     public boolean hasTarget() {
         return !aimTags.isEmpty();
     }

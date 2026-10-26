@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.routes;
 
 import com.qualcomm.robotcore.util.ElapsedTime;
+import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 
 import java.util.ArrayList;
@@ -22,13 +23,22 @@ public class RouteActions {
 
     private final BooleanSupplier isActive;
     private final HoldLoop holdLoop;
+    private final ElapsedTime autonTimer;
     private final Intake intake;
+    private final HiveAim hiveAim;
     private final List<String> notes = new ArrayList<>();
 
-    public RouteActions(BooleanSupplier isActive, HoldLoop holdLoop, Intake intake) {
+    /**
+     * autonTimer is the auton's clock, started when the route starts; hiveAim must be updated by
+     * the hold loop, so it reflects what the camera sees while actions wait.
+     */
+    public RouteActions(BooleanSupplier isActive, HoldLoop holdLoop, ElapsedTime autonTimer,
+                        Intake intake, HiveAim hiveAim) {
         this.isActive = isActive;
         this.holdLoop = holdLoop;
+        this.autonTimer = autonTimer;
         this.intake = intake;
+        this.hiveAim = hiveAim;
     }
 
     /**
@@ -55,6 +65,26 @@ public class RouteActions {
         while (isActive.getAsBoolean() && timer.milliseconds() < milliseconds) {
             holdLoop.run(activity);
         }
+    }
+
+    /**
+     * Holds position until the up CELL is ready to shoot at: our alliance's upright HIVE tags in
+     * view and not moving for a moment, so a CELL still swinging up after a HIVE TIP isn't shot
+     * at (see HiveAim.isCellReady()). A CELL that's already up and still takes about half a
+     * second. Gives up once the auton clock reaches untilAutonSeconds -- a time in the 30 s auton,
+     * not a length of wait -- so there's still time left for the rest of the route, and returns
+     * right away if there's no Limelight. Returns whether the CELL got ready; giving up, or
+     * having no Limelight, is noted in the end-of-run summary.
+     */
+    public boolean waitForCellReady(double untilAutonSeconds) {
+        if (!hiveAim.hasCamera()) {
+            notes.add("skipped wait for CELL ready: no Limelight");
+            return false;
+        }
+        long millisLeft = Math.round(untilAutonSeconds * 1000 - autonTimer.milliseconds());
+        return runUntil(
+                String.format(Locale.US, "wait for CELL ready (until %.1fs)", untilAutonSeconds),
+                hiveAim::isCellReady, Math.max(0, millisLeft));
     }
 
     /**

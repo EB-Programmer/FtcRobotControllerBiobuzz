@@ -5,6 +5,7 @@ import com.qualcomm.hardware.limelightvision.LLResultTypes;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ToDoubleFunction;
 
 /**
  * The visible tags of the up CELL's AprilTag Cluster: four tags in a row on a single sticker,
@@ -49,13 +50,23 @@ final class TagCluster {
      * offsets along the row. With only one tag visible, the angle to that tag.
      */
     double middleTx() {
+        return atMiddle(LLResultTypes.FiducialResult::getTargetXDegrees);
+    }
+
+    /** Vertical angle to the middle of the cluster, worked out the same way as middleTx(). */
+    double middleTy() {
+        return atMiddle(LLResultTypes.FiducialResult::getTargetYDegrees);
+    }
+
+    /** A value of the visible tags, e.g. tx, as it would be at the cluster's middle. */
+    private double atMiddle(ToDoubleFunction<LLResultTypes.FiducialResult> value) {
         List<Double> offsets = new ArrayList<>();
-        List<Double> txs = new ArrayList<>();
+        List<Double> values = new ArrayList<>();
         for (LLResultTypes.FiducialResult tag : tags) {
             offsets.add(offsetOf(tag));
-            txs.add(tag.getTargetXDegrees());
+            values.add(value.applyAsDouble(tag));
         }
-        return fitLineAtZero(offsets, txs);
+        return fitLineAtZero(offsets, values);
     }
 
     /**
