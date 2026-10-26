@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.routes;
 
 import com.qualcomm.robotcore.util.ElapsedTime;
+import org.firstinspires.ftc.teamcode.subsystems.Intake;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,11 +22,31 @@ public class RouteActions {
 
     private final BooleanSupplier isActive;
     private final HoldLoop holdLoop;
+    private final Intake intake;
     private final List<String> notes = new ArrayList<>();
 
-    public RouteActions(BooleanSupplier isActive, HoldLoop holdLoop) {
+    public RouteActions(BooleanSupplier isActive, HoldLoop holdLoop, Intake intake) {
         this.isActive = isActive;
         this.holdLoop = holdLoop;
+        this.intake = intake;
+    }
+
+    /**
+     * Starts the intake pulling game pieces in. It keeps running, through the paths that follow,
+     * until intakeOff() or intakeReverse(); it's turned off when the route ends. Does nothing
+     * without an "intake" motor.
+     */
+    public void intakeOn() {
+        intake.set(Intake.State.FORWARD);
+    }
+
+    /** Starts the intake pushing game pieces out; it keeps running like intakeOn(). */
+    public void intakeReverse() {
+        intake.set(Intake.State.REVERSE);
+    }
+
+    public void intakeOff() {
+        intake.set(Intake.State.OFF);
     }
 
     public void waitMillis(long milliseconds) {

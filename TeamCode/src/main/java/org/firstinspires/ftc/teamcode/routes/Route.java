@@ -22,7 +22,8 @@ import java.util.List;
  *     &#64;Override
  *     public void afterPath(int pathNumber, RouteActions robot) {
  *         switch (pathNumber) {
- *             case 2: robot.waitMillis(1500); break;
+ *             case 1: robot.intakeOn(); break;  // runs while path 2 drives
+ *             case 2: robot.waitMillis(1500); robot.intakeOff(); break;
  *             case 4: robot.waitMillis(500); break;
  *         }
  *     }

@@ -8,7 +8,7 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
 | OpMode | File | What it does |
 |---|---|---|
 | EB Auton | `BiobuzzAuton.java` | Runs a route chosen from a menu during INIT, with live telemetry and an end-of-run summary |
-| EB Teleop | `BiobuzzTeleop.java` | Driver control, plus the shooter and Limelight auto-aim at the HIVE (controls listed at the top of the file) |
+| EB Teleop | `BiobuzzTeleop.java` | Driver control, plus the shooter, intake, and Limelight auto-aim at the HIVE (controls listed at the top of the file) |
 | Tuning | `pedro/Tuning.java` | Pedro Pathing's tuning OpModes |
 | EB Auton: Rotate 45 CW | `examples/ExampleRotateAuton.java` | Turn-in-place test |
 
@@ -20,11 +20,12 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
   pasted code goes here, so a route can be re-pasted after changing it in the visualizer.
 - `routes/` -- one class per route (`Route`), pairing its pasted paths with what the robot does at
   the start and after each path, using the helpers in `RouteActions`.
-- `subsystems/` -- robot mechanisms: `Shooter`, and `HiveAim` (Limelight auto-aim) with its helpers
+- `subsystems/` -- robot mechanisms: `Shooter`, `Intake`, and `HiveAim` (Limelight auto-aim) with its helpers
   `TagCorners`, `TagCluster`, `HiveMemory`, `LimelightMount`, and `TagDebugTelemetry`.
 - `util/` -- general helpers: the INIT settings menu (`InitMenu`), the INFO/DEBUG telemetry switch
-  (`LogLevel`; X + d-pad left/right on either gamepad, in both OpModes), follower telemetry, pose
-  history, loop timing, and `Utils`.
+  (`LogLevel`; X + d-pad left/right on either gamepad, in both OpModes), what EB Auton hands on
+  to EB Teleop (`MatchSettings`: the alliance and where the robot ended up), follower telemetry,
+  pose history, loop timing, and `Utils`.
 - `com/pedropathing/` (next to `org/`) -- a small compatibility layer that lets the path visualizer's
   output, written for Pedro Pathing 3.0, compile against 2.0.2. **If this project upgrades to Pedro
   Pathing 3.0, delete it**: its classes would clash with the real 3.0 ones.
@@ -37,6 +38,7 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
 | `pinpoint` | goBILDA Pinpoint | yes |
 | `limelight` | Limelight 3A | no -- teleop auto-aim is disabled without it |
 | `shooter` | shooter motor | no -- teleop shooter controls are disabled without it |
+| `intake` | intake motor | no -- intake controls and route intake actions do nothing without it |
 
 ## Limelight pipeline settings
 

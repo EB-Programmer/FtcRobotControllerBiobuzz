@@ -11,10 +11,12 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.routes.Route;
 import org.firstinspires.ftc.teamcode.routes.RouteActions;
 import org.firstinspires.ftc.teamcode.routes.UpCellRoute;
+import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.InitMenu;
 import org.firstinspires.ftc.teamcode.util.LogLevel;
 import org.firstinspires.ftc.teamcode.util.LoopTimer;
+import org.firstinspires.ftc.teamcode.util.MatchSettings;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,9 +25,10 @@ import java.util.Locale;
 /**
  * Runs a Route from the routes package: its atStart() actions, then path1(), path2(), ... in
  * order, each followed by its afterPath() actions while the robot holds that path's end pose.
- * During init the driver picks the route (the first one in routes, unless changed) from a
- * settings menu on the d-pad. See pedro/paths for how to add a new route from the online path
- * visualizer. On either gamepad, X + d-pad left/right switches telemetry between INFO and DEBUG
+ * During init the driver picks the alliance and the route (the first one in routes, unless
+ * changed) from a settings menu on the d-pad. The alliance and where the robot ends up are handed
+ * on to EB Teleop through MatchSettings. See pedro/paths for how to add a new route from the
+ * online path visualizer. On either gamepad, X + d-pad left/right switches telemetry between INFO and DEBUG
  * (see LogLevel).
  */
 @Autonomous(name = "EB Auton", group = "EBBiobuzz", preselectTeleOp = "EB Teleop")
@@ -40,6 +43,7 @@ public class BiobuzzAuton extends LinearOpMode {
 
     private Follower follower;
     private FollowerTelemetry followerTelemetry;
+    private Intake intake;
     private Route route;
     private String routeName;
     private List<Path> pathSequence = new ArrayList<>();
@@ -48,6 +52,7 @@ public class BiobuzzAuton extends LinearOpMode {
     private final ElapsedTime autonTimer = new ElapsedTime();
     private final LoopTimer loopTimer = new LoopTimer();
     private final LogLevel logLevel = new LogLevel();
+    private InitMenu.Choice<Boolean> redAllianceChoice;
 
     /** Which step's actions are running and the pose held meanwhile, for the hold loop. */
     private String actionStep;
@@ -57,16 +62,23 @@ public class BiobuzzAuton extends LinearOpMode {
     public void runOpMode() throws InterruptedException {
         follower = Constants.createFollower(hardwareMap);
         followerTelemetry = new FollowerTelemetry(follower, telemetry);
+        intake = new Intake(hardwareMap);
         runInitMenu();
         if (isStopRequested()) return;
+        MatchSettings.redAlliance = redAllianceChoice.get();
 
         List<String> results = runRoute();
+        intake.set(Intake.State.OFF);  // a route can leave it running after its last path
+        // Saved even when Stop cut the route short, so teleop starts from wherever the robot is
+        MatchSettings.autonEndPose = follower.getPose();
         showSummaryUntilStop(results);
     }
 
     /** Shows the setup menu until Start (or Stop), loading whichever route is chosen. */
     private void runInitMenu() {
         InitMenu menu = new InitMenu("EB Auton setup");
+        redAllianceChoice = menu.choice("Alliance", new Boolean[]{true, false},
+                red -> red ? "RED" : "BLUE");
         InitMenu.Choice<Route> routeChoice =
                 menu.choice("Route", routes, route -> route.getClass().getSimpleName());
 
@@ -84,6 +96,8 @@ public class BiobuzzAuton extends LinearOpMode {
                 telemetry.addLine(routeError);
             }
             telemetry.addData("Pinpoint", followerTelemetry.pinpointStatus());
+            telemetry.addData("Intake", intake.isPresent()
+                    ? "found" : "not found -- route intake actions do nothing");
             logLevel.addTelemetry(telemetry);
             telemetry.update();
         }
@@ -128,7 +142,7 @@ public class BiobuzzAuton extends LinearOpMode {
         if (route == null) {
             return results;
         }
-        routeActions = new RouteActions(this::opModeIsActive, this::holdLoop);
+        routeActions = new RouteActions(this::opModeIsActive, this::holdLoop, intake);
 
         Pose startPose = pathSequence.get(0).getPose(0);
         follower.holdPoint(startPose);

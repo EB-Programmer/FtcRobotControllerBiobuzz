@@ -36,11 +36,14 @@ public class FollowerTelemetry {
 
     /** Adds the robot's current pose and the goal pose it's driving toward or holding. */
     public void addPose(Pose goal) {
-        Pose pose = follower.getPose();
-        telemetry.addData("Pose", "x %.1f  y %.1f  h %.1f°",
+        telemetry.addData("Pose", describePose(follower.getPose()));
+        telemetry.addData("Goal", describePose(goal));
+    }
+
+    /** A pose as "x 12.3  y 45.6  h 90.0°". */
+    public static String describePose(Pose pose) {
+        return String.format(Locale.US, "x %.1f  y %.1f  h %.1f°",
                 pose.getX(), pose.getY(), Utils.degrees(pose.getHeading()));
-        telemetry.addData("Goal", "x %.1f  y %.1f  h %.1f°",
-                goal.getX(), goal.getY(), Utils.degrees(goal.getHeading()));
     }
 
     /** Adds loop time and Pinpoint status. */

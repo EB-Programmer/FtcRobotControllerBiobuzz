@@ -7,9 +7,11 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
+import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.LogLevel;
+import org.firstinspires.ftc.teamcode.util.MatchSettings;
 import org.firstinspires.ftc.teamcode.util.Utils;
 
 import java.util.List;
@@ -23,12 +25,13 @@ import java.util.List;
  *   B:              Slow Drive Mode
  *
  * Controls for Gamepad 2:
- *   Left Bumper:
- *   Right Bumper:
+ *   Left Bumper:    Reverse intake (press to turn on or off)
+ *   Right Bumper:   Intake (press to turn on or off)
  *   Right Trigger:  Shoot (hold)
  *   Dpad Up/Down:   Increase / decrease shooter power
  *   A:
- *   B:              Toggle alliance (Red / Blue). Can be pressed during INIT
+ *   B:              Toggle alliance (Red / Blue). Can be pressed during INIT. Starts on the
+ *                   alliance chosen in EB Auton, or Red if EB Auton hasn't run
  *   Y:              Auto-aim at the HIVE (hold). Overrides turning from gamepad 1. Aims with
  *                   the HIVE AprilTags when they're visible, otherwise turns toward where the
  *                   HIVE was last seen. If it gets there and still can't see any tags,
@@ -38,9 +41,12 @@ import java.util.List;
  *   X + Dpad Left:  Telemetry at INFO (the default)
  *   X + Dpad Right: Telemetry at DEBUG (adds per-tag, motor power, and joystick lines)
  *
- * The shooter and the Limelight are optional hardware: without a "shooter" motor or a
- * "limelight" configured, everything else still works and the shooter or auto-aim controls do
- * nothing.
+ * After EB Auton, odometry picks up from where the auton left the robot, so poses are in field
+ * coordinates; otherwise it starts at x 0, y 0, heading 0 wherever the robot is.
+ *
+ * The shooter, the intake, and the Limelight are optional hardware: without a "shooter" or
+ * "intake" motor or a "limelight" configured, everything else still works and that hardware's
+ * controls do nothing.
  */
 
 @TeleOp(name = "EB Teleop", group = "EBBiobuzz")
@@ -56,10 +62,14 @@ public class BiobuzzTeleop extends LinearOpMode {
     private FollowerTelemetry followerTelemetry;
     private Mecanum drivetrain;
     private Shooter shooter;
+    private Intake intake;
     private HiveAim hiveAim;
     private final LogLevel logLevel = new LogLevel();
     private boolean fastDriveMode = true;
     private boolean redAlliance = true;
+    // Where redAlliance and the starting pose came from, for telemetry
+    private String allianceSource = "default";
+    private String poseSource = "started at 0, 0";
 
     @Override
     public void runOpMode() {
@@ -94,6 +104,7 @@ public class BiobuzzTeleop extends LinearOpMode {
             hiveAim.update(redAlliance, gamepad2.y);
             drive();
             shoot();
+            runIntake();
             updateTelemetry();
         }
 
@@ -102,18 +113,34 @@ public class BiobuzzTeleop extends LinearOpMode {
 
     private void initHardware() {
         follower = Constants.createFollower(hardwareMap);
+        takeMatchSettings();
         followerTelemetry = new FollowerTelemetry(follower, telemetry);
         drivetrain = (Mecanum) follower.getDrivetrain();
         shooter = new Shooter(hardwareMap);
+        intake = new Intake(hardwareMap);
         hiveAim = new HiveAim(hardwareMap, follower);
 
         // Started during init so the driver can check that the tags are visible before START
         hiveAim.start();
     }
 
+    /** Picks up the alliance and robot pose that EB Auton left in MatchSettings, if any. */
+    private void takeMatchSettings() {
+        if (MatchSettings.redAlliance != null) {
+            redAlliance = MatchSettings.redAlliance;
+            allianceSource = "from auton";
+        }
+        if (MatchSettings.autonEndPose != null) {
+            follower.setStartingPose(MatchSettings.autonEndPose);
+            MatchSettings.autonEndPose = null;
+            poseSource = "from auton";
+        }
+    }
+
     private void toggleAlliance() {
         if (gamepad2.bWasPressed()) {
             redAlliance = !redAlliance;
+            allianceSource = "set with B";
         }
     }
 
@@ -161,15 +188,35 @@ public class BiobuzzTeleop extends LinearOpMode {
         shooter.setPower(gamepad2.right_trigger > 0.25 ? shooterPower : 0);
     }
 
-    /** Pinpoint, shooter, and aim status, shown both during init and while driving. */
+    /**
+     * Each bumper turns its direction on with one press and off with the next; pressing one while
+     * the other direction is running switches straight over.
+     */
+    private void runIntake() {
+        boolean forwardPressed = gamepad2.rightBumperWasPressed();
+        boolean reversePressed = gamepad2.leftBumperWasPressed();
+        Intake.State state = intake.getState();
+        if (forwardPressed) {
+            intake.set(state == Intake.State.FORWARD ? Intake.State.OFF : Intake.State.FORWARD);
+        } else if (reversePressed) {
+            intake.set(state == Intake.State.REVERSE ? Intake.State.OFF : Intake.State.REVERSE);
+        }
+    }
+
+    /** Pinpoint, shooter, intake, and aim status, shown both during init and while driving. */
     private void addStatusTelemetry() {
         telemetry.addData("Pinpoint", followerTelemetry.pinpointStatus());
+        telemetry.addData("Pose", "%s (%s)",
+                FollowerTelemetry.describePose(follower.getPose()), poseSource);
         if (shooter.isPresent()) {
             telemetry.addData("Shooter RPM", "%.0f", shooter.getRpm());
         } else {
             telemetry.addData("Shooter", "not found -- shooter controls disabled");
         }
-        telemetry.addData("Aim", "%s, %s", redAlliance ? "RED" : "BLUE",
+        telemetry.addData("Intake", intake.isPresent()
+                ? String.valueOf(intake.getState())
+                : "not found -- intake controls disabled");
+        telemetry.addData("Aim", "%s (%s), %s", redAlliance ? "RED" : "BLUE", allianceSource,
                 hiveAim.describeStatus());
         telemetry.addData("HIVE", hiveAim.describeHive());
         if (logLevel.isDebug()) {
