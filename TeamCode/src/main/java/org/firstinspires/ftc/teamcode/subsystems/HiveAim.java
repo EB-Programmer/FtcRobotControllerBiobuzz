@@ -65,7 +65,9 @@ public class HiveAim {
     private final CellReadiness cellReadiness = new CellReadiness();
     private boolean cornersMissing = false;
     private boolean tiltMissing = false;
-    private double tx = 0;
+    // Degrees to turn the robot to face the middle of the tags in view; positive is
+    // counterclockwise (left)
+    private double aimErrorDeg = 0;
     private long lastResultMillis = -1;
 
     private Boolean memoryRedAlliance = null;
@@ -130,7 +132,7 @@ public class HiveAim {
             cornersMissing = false;
             tiltMissing = false;
             cellReadiness.clear();
-            tx = 0;
+            aimErrorDeg = 0;
             return;
         }
         // The same result comes back until the Limelight sends a new one, which can take several
@@ -166,24 +168,29 @@ public class HiveAim {
             } else if (TagTilt.isLyingFlat(tag)) {
                 flatTags.add(tag);
             } else {
-                aimTags.add(tag, LimelightMount.tagFieldPosition(
-                        tag.getTargetPoseCameraSpace(), robotAtCapture));
+                aimTags.add(tag, LimelightMount.tagRobotPosition(tag.getTargetPoseCameraSpace()));
             }
         }
-        tx = aimTags.isEmpty() ? 0 : aimTags.middleTx();
         if (aimTags.isEmpty()) {
+            aimErrorDeg = 0;
             cellReadiness.clear();
-        } else {
-            cellReadiness.addFrame(captureMillis, aimTags.middleTy());
+            return;
         }
+        cellReadiness.addFrame(captureMillis, aimTags.middleTy());
 
-        if (!aimTags.isEmpty()) {
-            Pose middle = aimTags.middleFieldPosition();
-            boolean turningSlowly = Math.abs(Math.toDegrees(follower.getAngularVelocity()))
-                    < MAX_MEMORY_UPDATE_TURN_RATE_DEG;
-            if (middle != null && turningSlowly) {
-                memory.remember(middle);
-            }
+        // The camera sits off to the side of the robot's center (see LimelightMount), so turning
+        // until the tags are straight ahead of the camera would leave the robot pointed beside
+        // them. With 3D positions, aim the robot's center at them instead; without, the camera's
+        // angle is the best there is.
+        Pose middle = aimTags.middleRobotPosition();
+        aimErrorDeg = middle != null
+                ? Math.toDegrees(Math.atan2(middle.getY(), middle.getX()))
+                : -aimTags.middleTx();  // positive tx means the tags are to the right
+
+        boolean turningSlowly = Math.abs(Math.toDegrees(follower.getAngularVelocity()))
+                < MAX_MEMORY_UPDATE_TURN_RATE_DEG;
+        if (middle != null && robotAtCapture != null && turningSlowly) {
+            memory.remember(LimelightMount.fieldPosition(middle, robotAtCapture));
         }
     }
 
@@ -232,7 +239,7 @@ public class HiveAim {
         // Positive error means the HIVE is counterclockwise of where the robot is facing
         double errorDeg;
         if (hasTarget()) {
-            errorDeg = -tx;  // positive tx means the tags are to the right (clockwise)
+            errorDeg = aimErrorDeg;
         } else if (!memory.isEmpty()) {
             errorDeg = memory.headingErrorDeg(follower.getPose());
         } else {
@@ -251,11 +258,12 @@ public class HiveAim {
             return "no camera -- no \"limelight\" configured";
         }
         if (hasTarget()) {
-            String state = Math.abs(tx) < TOLERANCE_DEG ? "LOCKED (camera)"
+            String state = Math.abs(aimErrorDeg) < TOLERANCE_DEG ? "LOCKED (camera)"
                     : aimHeld ? "TURNING to tags (camera)"
                     : "tags in view (camera)";
-            return String.format(Locale.US, "%s, %d tags, tx %.1f°%s",
-                    state, aimTags.size(), tx, describeIgnored());
+            return String.format(Locale.US, "%s, %d tags, %.1f° %s%s",
+                    state, aimTags.size(), Math.abs(aimErrorDeg),
+                    aimErrorDeg >= 0 ? "left" : "right", describeIgnored());
         }
         if (memory.isEmpty()) {
             return "no data" + describeIgnored();

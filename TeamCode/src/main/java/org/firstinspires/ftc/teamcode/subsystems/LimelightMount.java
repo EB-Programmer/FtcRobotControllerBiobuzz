@@ -6,23 +6,25 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
 
 /**
- * Where the Limelight is mounted on the robot, and the math for turning what it sees into field
- * positions. Update these constants if the camera moves.
+ * Where the Limelight is mounted on the robot, and the math for turning what it sees into
+ * positions relative to the robot's center and on the field. Update these constants if the camera
+ * moves.
  */
 final class LimelightMount {
     static final double CAMERA_FORWARD_IN = 6.0;  // ahead of the robot's center
-    static final double CAMERA_LEFT_IN = 0.0;  // left of the robot's center
+    static final double CAMERA_LEFT_IN = -4.0;  // left of the robot's center (negative is right)
     static final double CAMERA_TILT_DEG = 45.0;  // upward from horizontal
 
     private LimelightMount() {
     }
 
     /**
-     * Where on the field a tag is (x and y, in inches), given its position relative to the camera
-     * and the robot's pose when the frame was captured. Null without a 3D position for the tag.
+     * Where a tag is relative to the robot's center, in inches, from its position relative to the
+     * camera: x is how far ahead and y how far to the left. Null without a 3D position for the
+     * tag.
      */
-    static Pose tagFieldPosition(Pose3D tagInCamera, Pose robot) {
-        if (robot == null || !has3D(tagInCamera)) {
+    static Pose tagRobotPosition(Pose3D tagInCamera) {
+        if (!has3D(tagInCamera)) {
             return null;
         }
         // Limelight camera space: +x right, +y down, +z straight out of the lens
@@ -30,7 +32,16 @@ final class LimelightMount {
         double tilt = Math.toRadians(CAMERA_TILT_DEG);
         double forward = p.z * Math.cos(tilt) + p.y * Math.sin(tilt) + CAMERA_FORWARD_IN;
         double left = -p.x + CAMERA_LEFT_IN;
+        return new Pose(forward, left);
+    }
 
+    /**
+     * Where on the field (x and y, in inches) a spot is, given where it is relative to the robot's
+     * center (see tagRobotPosition) and the robot's pose at the time.
+     */
+    static Pose fieldPosition(Pose robotRelative, Pose robot) {
+        double forward = robotRelative.getX();
+        double left = robotRelative.getY();
         double heading = robot.getHeading();
         return new Pose(
                 robot.getX() + forward * Math.cos(heading) - left * Math.sin(heading),

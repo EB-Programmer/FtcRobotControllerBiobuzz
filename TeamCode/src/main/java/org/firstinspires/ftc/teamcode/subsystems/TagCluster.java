@@ -20,17 +20,20 @@ final class TagCluster {
     private static final double[] OFFSETS_IN = {-6.5, -2.75, 2.75, 6.5};
 
     private final List<LLResultTypes.FiducialResult> tags = new ArrayList<>();
-    private final List<Pose> fieldPositions = new ArrayList<>();
+    private final List<Pose> robotPositions = new ArrayList<>();
 
-    /** Adds a visible tag, with its field position, or null if it has no 3D position. */
-    void add(LLResultTypes.FiducialResult tag, Pose fieldPosition) {
+    /**
+     * Adds a visible tag, with its position relative to the robot's center (see
+     * LimelightMount.tagRobotPosition), or null if it has no 3D position.
+     */
+    void add(LLResultTypes.FiducialResult tag, Pose robotPosition) {
         tags.add(tag);
-        fieldPositions.add(fieldPosition);
+        robotPositions.add(robotPosition);
     }
 
     void clear() {
         tags.clear();
-        fieldPositions.clear();
+        robotPositions.clear();
     }
 
     List<LLResultTypes.FiducialResult> getTags() {
@@ -70,16 +73,16 @@ final class TagCluster {
     }
 
     /**
-     * The middle of the cluster on the field, from the visible tags' field positions and their
-     * known offsets along the row. With only one positioned tag, that tag's position; null when
-     * no visible tag has a 3D position.
+     * Where the middle of the cluster is relative to the robot's center (x ahead, y to the left),
+     * from the visible tags' positions and their known offsets along the row. With only one
+     * positioned tag, that tag's position; null when no visible tag has a 3D position.
      */
-    Pose middleFieldPosition() {
+    Pose middleRobotPosition() {
         List<Double> offsets = new ArrayList<>();
         List<Double> xs = new ArrayList<>();
         List<Double> ys = new ArrayList<>();
         for (int i = 0; i < tags.size(); i++) {
-            Pose position = fieldPositions.get(i);
+            Pose position = robotPositions.get(i);
             if (position != null) {
                 offsets.add(offsetOf(tags.get(i)));
                 xs.add(position.getX());
