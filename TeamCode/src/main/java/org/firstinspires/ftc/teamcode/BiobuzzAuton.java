@@ -11,6 +11,7 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.routes.DownCellRoute;
 import org.firstinspires.ftc.teamcode.routes.Route;
 import org.firstinspires.ftc.teamcode.routes.RouteActions;
+import org.firstinspires.ftc.teamcode.routes.UpCell4Route;
 import org.firstinspires.ftc.teamcode.routes.UpCellRoute;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
@@ -40,6 +41,7 @@ public class BiobuzzAuton extends LinearOpMode {
     private final Route[] routes = {
             new UpCellRoute(),
             new DownCellRoute(),
+            new UpCell4Route(),
     };
 
     private static final double MAX_POWER = 0.5;
