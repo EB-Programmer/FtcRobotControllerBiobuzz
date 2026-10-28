@@ -23,6 +23,10 @@ import java.util.List;
  *   Right Trigger:  Turn clockwise
  *   A:              Fast Drive Mode
  *   B:              Slow Drive Mode
+ *   Y:              Auto-aim at the HIVE (hold). Overrides turning with the triggers. Aims
+ *                   with the HIVE AprilTags when they're visible, otherwise turns toward where
+ *                   the HIVE was last seen. If it gets there and still can't see any tags, the
+ *                   triggers can turn again until Y is released or tags come into view
  *
  * Controls for Gamepad 2:
  *   Left Bumper:    Reverse intake (press to turn on or off)
@@ -31,11 +35,10 @@ import java.util.List;
  *   Dpad Up/Down:   Increase / decrease shooter power
  *   A:
  *   B:              Toggle alliance (Red / Blue). Can be pressed during INIT. Starts on the
- *                   alliance chosen in EB Auton, or Red if EB Auton hasn't run
- *   Y:              Auto-aim at the HIVE (hold). Overrides turning from gamepad 1. Aims with
- *                   the HIVE AprilTags when they're visible, otherwise turns toward where the
- *                   HIVE was last seen. If it gets there and still can't see any tags,
- *                   gamepad 1 can turn again until Y is released or tags come into view
+ *                   alliance chosen in EB Auton, or Red if EB Auton hasn't run. Ignored
+ *                   while Start is held, so Start + B (making a controller gamepad 2) doesn't
+ *                   change it
+ *   Y:
  *
  * Either gamepad:
  *   X + Dpad Left:  Telemetry at INFO (the default)
@@ -101,7 +104,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             toggleAlliance();
             logLevel.update(gamepad1, gamepad2);
-            hiveAim.update(redAlliance, gamepad2.y);
+            hiveAim.update(redAlliance, gamepad1.y);
             drive();
             shoot();
             runIntake();
@@ -138,7 +141,10 @@ public class BiobuzzTeleop extends LinearOpMode {
     }
 
     private void toggleAlliance() {
-        if (gamepad2.bWasPressed()) {
+        // Read every pass, so a press made while Start is held is used up rather than counted
+        // once Start is let go
+        boolean bPressed = gamepad2.bWasPressed();
+        if (bPressed && !gamepad2.start) {
             redAlliance = !redAlliance;
             allianceSource = "set with B";
         }
@@ -159,7 +165,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         double strafe = -gamepad1.left_stick_x;
         double turn = gamepad1.left_trigger - gamepad1.right_trigger;
 
-        // Auto-aim replaces the driver's turn input while gamepad2 Y is held, when it has
+        // Auto-aim replaces the driver's turn input while gamepad1 Y is held, when it has
         // something to aim at (see HiveAim.isControllingTurn)
         if (hiveAim.isControllingTurn()) {
             turn = hiveAim.getTurn();

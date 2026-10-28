@@ -11,20 +11,25 @@ import java.util.Locale;
 
 /**
  * Per-tag telemetry lines for checking what the camera sees: each line shows how aiming used the
- * tag, plus its position and size in the image, its 3D rotation relative to the camera, and the
- * corner edge angle that TagCorners uses to spot upside-down tags.
+ * tag, plus its position and size in the image, its 3D rotation relative to the camera (pitch is
+ * the tilt TagTilt uses to spot flat tags), and the corner edge angle that TagCorners uses to spot
+ * upside-down tags.
  */
 final class TagDebugTelemetry {
     private TagDebugTelemetry() {
     }
 
     static void add(Telemetry telemetry, TagCluster aimTags,
-                    List<LLResultTypes.FiducialResult> upsideDownTags) {
+                    List<LLResultTypes.FiducialResult> upsideDownTags,
+                    List<LLResultTypes.FiducialResult> flatTags) {
         for (LLResultTypes.FiducialResult tag : aimTags.getTags()) {
             addTag(telemetry, tag, "aim");
         }
         for (LLResultTypes.FiducialResult tag : upsideDownTags) {
             addTag(telemetry, tag, "upside down");
+        }
+        for (LLResultTypes.FiducialResult tag : flatTags) {
+            addTag(telemetry, tag, "flat");
         }
     }
 

@@ -22,7 +22,7 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
   those paths with what the robot does at the start and after each path, using the helpers in
   `RouteActions`.
 - `subsystems/` -- robot mechanisms: `Shooter`, `Intake`, and `HiveAim` (Limelight auto-aim) with its helpers
-  `TagCorners`, `TagCluster`, `HiveMemory`, `LimelightMount`, and `TagDebugTelemetry`.
+  `TagCorners`, `TagTilt`, `TagCluster`, `HiveMemory`, `LimelightMount`, and `TagDebugTelemetry`.
 - `util/` -- general helpers: the INIT settings menu (`InitMenu`), the INFO/DEBUG telemetry switch
   (`LogLevel`; X + d-pad left/right on either gamepad, in both OpModes), what EB Auton hands on
   to EB Teleop (`MatchSettings`: the alliance and where the robot ended up), follower telemetry,
@@ -48,7 +48,8 @@ laptop by USB and browse to `http://limelight.local:5801`):
 
 - **Standard tab:** Family *AprilTag Classic 36h11*, Marker Size **82.55 mm** (3.25 in).
 - **Advanced tab:** **Full 3D** on. Without it, auto-aim still works on tags in view but can't
-  remember where the HIVE is.
+  remember where the HIVE is or spot the down CELL's flat tags, and the Aim telemetry line warns
+  "NO 3D".
 - **Output tab:** corner output on. Without it, upside-down tags can't be spotted, and the Aim
   telemetry line warns "NO CORNERS".
 

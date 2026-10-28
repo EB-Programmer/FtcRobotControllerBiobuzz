@@ -18,7 +18,8 @@ import java.util.Locale;
  * Aims the robot at its alliance's HIVE using the Limelight's view of the AprilTag Clusters on
  * the HIVE CELLS: each alliance has two CELLS with a cluster of four tags each, and which CELL is
  * up changes after each HIVE TIP. The up CELL's cluster is the one to aim at, at its middle; the
- * other CELL's tags are seen upside down (see TagCorners) and left out.
+ * other CELL's tags are seen either upside down (see TagCorners) or lying nearly flat (see
+ * TagTilt), and left out.
  *
  * It also remembers where on the field the HIVE was last seen (see HiveMemory). With no tags in
  * view, getTurn() turns the robot toward that remembered spot from wherever the robot is now,
@@ -56,12 +57,14 @@ public class HiveAim {
     private final Follower follower;
     private final PoseHistory poseHistory = new PoseHistory();
     private final HiveMemory memory = new HiveMemory();
-    // This frame's alliance tags: upright ones, all on the up CELL, to aim at; and upside-down
-    // ones, on the down CELL, left out
+    // This frame's alliance tags: upright, standing ones, all on the up CELL, to aim at; and
+    // upside-down or flat ones, on the down CELL, left out
     private final TagCluster aimTags = new TagCluster();
     private final List<LLResultTypes.FiducialResult> upsideDownTags = new ArrayList<>();
+    private final List<LLResultTypes.FiducialResult> flatTags = new ArrayList<>();
     private final CellReadiness cellReadiness = new CellReadiness();
     private boolean cornersMissing = false;
+    private boolean tiltMissing = false;
     private double tx = 0;
     private long lastResultMillis = -1;
 
@@ -123,7 +126,9 @@ public class HiveAim {
         if (result == null || !result.isValid() || result.getStaleness() >= MAX_RESULT_STALENESS) {
             aimTags.clear();
             upsideDownTags.clear();
+            flatTags.clear();
             cornersMissing = false;
+            tiltMissing = false;
             cellReadiness.clear();
             tx = 0;
             return;
@@ -139,11 +144,13 @@ public class HiveAim {
                 - Math.round(result.getCaptureLatency() + result.getTargetingLatency());
         Pose robotAtCapture = poseHistory.poseAt(captureMillis);
 
-        // Only one of our alliance's two CELLS is up at a time, so once the upside-down tags --
-        // on the CELL that's down -- are set aside, every tag left is on the up CELL
+        // Only one of our alliance's two CELLS is up at a time, so once the upside-down and flat
+        // tags -- on the CELL that's down -- are set aside, every tag left is on the up CELL
         aimTags.clear();
         upsideDownTags.clear();
+        flatTags.clear();
         cornersMissing = false;
+        tiltMissing = false;
         for (LLResultTypes.FiducialResult tag : result.getFiducialResults()) {
             if (!isAllianceTag(tag.getFiducialId(), redAlliance)) {
                 continue;
@@ -151,8 +158,13 @@ public class HiveAim {
             if (!TagCorners.hasCorners(tag)) {
                 cornersMissing = true;
             }
+            if (!TagTilt.hasTilt(tag)) {
+                tiltMissing = true;
+            }
             if (TagCorners.isUpsideDown(tag)) {
                 upsideDownTags.add(tag);
+            } else if (TagTilt.isLyingFlat(tag)) {
+                flatTags.add(tag);
             } else {
                 aimTags.add(tag, LimelightMount.tagFieldPosition(
                         tag.getTargetPoseCameraSpace(), robotAtCapture));
@@ -194,7 +206,10 @@ public class HiveAim {
         return limelight != null;
     }
 
-    /** Whether any of our alliance's upright HIVE tags -- the ones aiming uses -- are in view. */
+    /**
+     * Whether any of our alliance's upright, standing HIVE tags -- the ones aiming uses -- are in
+     * view.
+     */
     public boolean hasTarget() {
         return !aimTags.isEmpty();
     }
@@ -279,26 +294,37 @@ public class HiveAim {
 
     /** A line per visible alliance tag, for debugging; see TagDebugTelemetry. */
     public void addTagTelemetry(Telemetry telemetry) {
-        TagDebugTelemetry.add(telemetry, aimTags, upsideDownTags);
+        TagDebugTelemetry.add(telemetry, aimTags, upsideDownTags, flatTags);
     }
 
     /**
-     * Notes for the end of the status line: which tags were left out for being upside down, e.g.
-     * "; ignoring upside-down 30, 33", and a warning when tags arrive without corners, so
-     * upside-down ones can't be spotted. "" when there's nothing to note.
+     * Notes for the end of the status line: which tags were left out and why, e.g.
+     * "; ignoring upside-down 31, 33; ignoring flat 30, 32", and a warning when tags arrive
+     * without the corners or 3D pose needed to check them. "" when there's nothing to note.
      */
     private String describeIgnored() {
         StringBuilder result = new StringBuilder();
-        if (!upsideDownTags.isEmpty()) {
-            result.append("; ignoring upside-down");
-            for (int i = 0; i < upsideDownTags.size(); i++) {
-                result.append(i == 0 ? " " : ", ").append(upsideDownTags.get(i).getFiducialId());
-            }
-        }
+        appendIgnored(result, "upside-down", upsideDownTags);
+        appendIgnored(result, "flat", flatTags);
         if (cornersMissing) {
             result.append("; NO CORNERS from Limelight -- can't spot upside-down tags");
         }
+        if (tiltMissing) {
+            result.append("; NO 3D from Limelight -- can't spot flat tags");
+        }
         return result.toString();
+    }
+
+    /** Appends e.g. "; ignoring flat 30, 32", or nothing when tags is empty. */
+    private static void appendIgnored(StringBuilder result, String why,
+                                      List<LLResultTypes.FiducialResult> tags) {
+        if (tags.isEmpty()) {
+            return;
+        }
+        result.append("; ignoring ").append(why);
+        for (int i = 0; i < tags.size(); i++) {
+            result.append(i == 0 ? " " : ", ").append(tags.get(i).getFiducialId());
+        }
     }
 
     private static boolean isAllianceTag(int id, boolean redAlliance) {

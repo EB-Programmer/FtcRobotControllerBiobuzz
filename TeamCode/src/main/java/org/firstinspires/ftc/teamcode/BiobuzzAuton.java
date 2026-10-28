@@ -118,10 +118,13 @@ public class BiobuzzAuton extends LinearOpMode {
     }
 
     /**
-     * Builds the chosen route's paths and moves the follower's starting pose to the route's
-     * start. The follower already exists by now, so each path picks up
-     * Constants.pathConstraints, which createFollower installs as the default constraints for
-     * newly constructed paths.
+     * Builds the chosen route's paths and sets the robot's pose to the route's start. The
+     * follower already exists by now, so each path picks up Constants.pathConstraints, which
+     * createFollower installs as the default constraints for newly constructed paths.
+     *
+     * This uses setPose() rather than setStartingPose(): the menu can load several routes in a
+     * row, and Pedro's Pinpoint code treats every setStartingPose() after the first as a move
+     * relative to the previous start, which puts the robot somewhere else entirely.
      *
      * A route whose paths can't be built leaves pathSequence empty, so the robot stays put, and
      * sets routeError so the problem shows on the Driver Station during init instead of crashing.
@@ -139,7 +142,7 @@ public class BiobuzzAuton extends LinearOpMode {
             }
             route = chosen;
             pathSequence = paths;
-            follower.setStartingPose(pathSequence.get(0).getPose(0));
+            follower.setPose(pathSequence.get(0).getPose(0));
         } catch (RuntimeException e) {
             String reason = e.getMessage() != null ? e.getMessage() : e.toString();
             routeError = "Couldn't build " + routeName + "'s paths: " + reason;
