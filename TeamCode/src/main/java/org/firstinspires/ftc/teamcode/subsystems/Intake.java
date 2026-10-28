@@ -9,12 +9,13 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
  */
 public class Intake {
     public static final String HARDWARE_NAME = "intake";
-    private static final double POWER = 0.9;
+    public static final double DEFAULT_POWER = 0.2;
 
     public enum State { OFF, FORWARD, REVERSE }
 
     private final DcMotor motor;
     private State state = State.OFF;
+    private double power = DEFAULT_POWER;
 
     public Intake(HardwareMap hardwareMap) {
         motor = hardwareMap.tryGet(DcMotor.class, HARDWARE_NAME);
@@ -34,14 +35,26 @@ public class Intake {
         return state;
     }
 
+    public double getPower() {
+        return power;
+    }
+
+    /** Sets how hard FORWARD and REVERSE run (0 to 1), taking effect right away if running. */
+    public void setPower(double newPower) {
+        if (newPower != power) {
+            power = newPower;
+            set(state);
+        }
+    }
+
     public void set(State newState) {
         state = newState;
         if (motor == null) {
             return;
         }
         switch (newState) {
-            case FORWARD: motor.setPower(POWER); break;
-            case REVERSE: motor.setPower(-POWER); break;
+            case FORWARD: motor.setPower(power); break;
+            case REVERSE: motor.setPower(-power); break;
             default: motor.setPower(0); break;
         }
     }

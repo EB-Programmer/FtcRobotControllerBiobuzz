@@ -9,10 +9,13 @@ import org.firstinspires.ftc.robotcore.external.navigation.Position;
  * Where the Limelight is mounted on the robot, and the math for turning what it sees into
  * positions relative to the robot's center and on the field. Update these constants if the camera
  * moves.
+ *
+ * The camera's height (13 in above the floor) isn't needed: the Limelight's 3D pose already
+ * measures how far away each tag is, so nothing here works distance out from height.
  */
 final class LimelightMount {
-    static final double CAMERA_FORWARD_IN = 6.0;  // ahead of the robot's center
-    static final double CAMERA_LEFT_IN = -4.0;  // left of the robot's center (negative is right)
+    static final double CAMERA_FORWARD_IN = 5.0;  // ahead of the robot's center
+    static final double CAMERA_LEFT_IN = -2.0;  // left of the robot's center (negative is right)
     static final double CAMERA_TILT_DEG = 45.0;  // upward from horizontal
 
     private LimelightMount() {

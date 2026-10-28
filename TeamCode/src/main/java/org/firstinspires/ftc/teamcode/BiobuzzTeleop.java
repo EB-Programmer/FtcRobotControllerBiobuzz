@@ -32,7 +32,7 @@ import java.util.List;
  *   Left Bumper:    Reverse intake (press to turn on or off)
  *   Right Bumper:   Intake (press to turn on or off)
  *   Right Trigger:  Shoot (hold)
- *   Dpad Up/Down:   Increase / decrease shooter power
+ *   Dpad Up/Down:   Increase / decrease intake power
  *   A:
  *   B:              Toggle alliance (Red / Blue). Can be pressed during INIT. Starts on the
  *                   alliance chosen in EB Auton, or Red if EB Auton hasn't run. Ignored
@@ -57,9 +57,11 @@ public class BiobuzzTeleop extends LinearOpMode {
     private static final double DRIVE_HIGH_POWER = 1.0;
     private static final double DRIVE_LOW_POWER = 0.4;
 
+    private static final double SHOOTER_POWER = 0.5;
+
     // Static so a value tuned with the d-pad carries over to the next run, until the robot
     // app restarts
-    private static double shooterPower = 0.5;
+    private static double intakePower = Intake.DEFAULT_POWER;
 
     private Follower follower;
     private FollowerTelemetry followerTelemetry;
@@ -189,18 +191,24 @@ public class BiobuzzTeleop extends LinearOpMode {
         if (!shooter.isPresent()) {
             return;
         }
-        shooterPower = Utils.tuneConstant(telemetry, "Shooter Power (Max)", shooterPower,
-                gamepad2.dpadUpWasPressed(), gamepad2.dpadDownWasPressed(), 0.05, 1.0);
-        shooter.setPower(gamepad2.right_trigger > 0.25 ? shooterPower : 0);
+        shooter.setPower(gamepad2.right_trigger > 0.25 ? SHOOTER_POWER : 0);
     }
 
     /**
      * Each bumper turns its direction on with one press and off with the next; pressing one while
-     * the other direction is running switches straight over.
+     * the other direction is running switches straight over. The d-pad tunes how hard it runs.
      */
     private void runIntake() {
         boolean forwardPressed = gamepad2.rightBumperWasPressed();
         boolean reversePressed = gamepad2.leftBumperWasPressed();
+        boolean powerUpPressed = gamepad2.dpadUpWasPressed();
+        boolean powerDownPressed = gamepad2.dpadDownWasPressed();
+        if (!intake.isPresent()) {
+            return;
+        }
+        intakePower = Utils.tuneConstant(telemetry, "Intake Power", intakePower,
+                powerUpPressed, powerDownPressed, 0.05, 1.0);
+        intake.setPower(intakePower);
         Intake.State state = intake.getState();
         if (forwardPressed) {
             intake.set(state == Intake.State.FORWARD ? Intake.State.OFF : Intake.State.FORWARD);
