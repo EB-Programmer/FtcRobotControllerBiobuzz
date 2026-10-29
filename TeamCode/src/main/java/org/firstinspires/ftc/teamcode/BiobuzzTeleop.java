@@ -25,8 +25,10 @@ import java.util.List;
  *   B:              Slow Drive Mode
  *   Y:              Auto-aim at the HIVE (hold). Overrides turning with the triggers. Aims
  *                   with the HIVE AprilTags when they're visible, otherwise turns toward where
- *                   the HIVE was last seen. If it gets there and still can't see any tags, the
- *                   triggers can turn again until Y is released or tags come into view
+ *                   the HIVE was last seen -- or, before any tags have been seen, toward the
+ *                   nearer of our two CELLS on the field map (only after EB Auton, which puts
+ *                   odometry in field coordinates). If it gets there and still can't see any
+ *                   tags, the triggers can turn again until Y is released or tags come into view
  *
  * Controls for Gamepad 2:
  *   Left Bumper:    Reverse intake (press to turn on or off)
@@ -75,6 +77,8 @@ public class BiobuzzTeleop extends LinearOpMode {
     // Where redAlliance and the starting pose came from, for telemetry
     private String allianceSource = "default";
     private String poseSource = "started at 0, 0";
+    // Whether odometry is in field coordinates, which it is only when picked up from EB Auton
+    private boolean poseOnField = false;
 
     @Override
     public void runOpMode() {
@@ -123,7 +127,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         drivetrain = (Mecanum) follower.getDrivetrain();
         shooter = new Shooter(hardwareMap);
         intake = new Intake(hardwareMap);
-        hiveAim = new HiveAim(hardwareMap, follower);
+        hiveAim = new HiveAim(hardwareMap, follower, poseOnField);
 
         // Started during init so the driver can check that the tags are visible before START
         hiveAim.start();
@@ -139,6 +143,7 @@ public class BiobuzzTeleop extends LinearOpMode {
             follower.setStartingPose(MatchSettings.autonEndPose);
             MatchSettings.autonEndPose = null;
             poseSource = "from auton";
+            poseOnField = true;
         }
     }
 

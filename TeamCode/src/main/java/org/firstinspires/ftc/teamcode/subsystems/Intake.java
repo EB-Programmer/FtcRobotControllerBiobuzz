@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
  */
 public class Intake {
     public static final String HARDWARE_NAME = "intake";
-    public static final double DEFAULT_POWER = 0.2;
+    public static final double DEFAULT_POWER = 0.8;
 
     public enum State { OFF, FORWARD, REVERSE }
 
@@ -20,9 +20,9 @@ public class Intake {
     public Intake(HardwareMap hardwareMap) {
         motor = hardwareMap.tryGet(DcMotor.class, HARDWARE_NAME);
         if (motor != null) {
-            // FORWARD should pull game pieces in. If it pushes them out instead, change this to
-            // REVERSE.
-            motor.setDirection(DcMotor.Direction.FORWARD);
+            // Intake.State.FORWARD should pull game pieces in. If it pushes them out instead,
+            // change this to FORWARD.
+            motor.setDirection(DcMotor.Direction.REVERSE);
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         }
     }

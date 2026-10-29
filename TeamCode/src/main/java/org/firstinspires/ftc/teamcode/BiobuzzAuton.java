@@ -70,7 +70,7 @@ public class BiobuzzAuton extends LinearOpMode {
         follower = Constants.createFollower(hardwareMap);
         followerTelemetry = new FollowerTelemetry(follower, telemetry);
         intake = new Intake(hardwareMap);
-        hiveAim = new HiveAim(hardwareMap, follower);
+        hiveAim = new HiveAim(hardwareMap, follower, true);  // routes are in field coordinates
         hiveAim.start();  // during init, so the camera is already sending results at Start
         runInitMenu();
         if (isStopRequested()) {

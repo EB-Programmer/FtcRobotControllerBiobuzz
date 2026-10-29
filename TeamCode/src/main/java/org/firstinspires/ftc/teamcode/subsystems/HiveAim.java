@@ -1,12 +1,16 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.pedropathing.follower.Follower;
+import com.pedropathing.ftc.localization.localizers.PinpointLocalizer;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.localization.Localizer;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 import org.firstinspires.ftc.teamcode.util.PoseHistory;
 import org.firstinspires.ftc.teamcode.util.Utils;
 
@@ -23,16 +27,23 @@ import java.util.Locale;
  *
  * It also remembers where on the field the HIVE was last seen (see HiveMemory). With no tags in
  * view, getTurn() turns the robot toward that remembered spot from wherever the robot is now,
- * until tags come back into view and the camera takes over again. Once the robot faces the
- * remembered spot and still can't see any tags (say, something's in the way), aiming hands
- * turning back to the driver -- see isControllingTurn() -- until the aim button is released or
- * tags come into view.
+ * until tags come back into view and the camera takes over again. Before any tags have been
+ * seen, it turns toward the nearer of our alliance's two CELLS on the field map instead, as long
+ * as the robot's pose is in field coordinates (it is after EB Auton). Once the robot faces
+ * either spot and still can't see any tags (say, something's in the way), aiming hands turning
+ * back to the driver -- see isControllingTurn() -- until the aim button is released or tags come
+ * into view.
+ *
+ * Either way, the turning itself steers by the Pinpoint's heading, which is up to date every
+ * loop: the camera only decides which heading faces the tags. Each camera frame is some
+ * milliseconds old by the time it arrives, and steering straight off it would keep the robot
+ * turning after it got there, swinging back and forth past the target.
  *
  * It also tracks whether the up CELL has stopped moving, for an auton waiting on a HIVE TIP --
  * see CellReadiness and isCellReady().
  *
- * The Limelight is optional hardware: without one named "limelight" configured, aiming has
- * nothing to go on and never takes over turning.
+ * The Limelight is optional hardware: without one named "limelight" configured, aiming only has
+ * the field map to go on.
  */
 public class HiveAim {
     // AprilTag IDs on the HIVE CELLS: red 30-37, blue 38-45
@@ -42,19 +53,31 @@ public class HiveAim {
     private static final int BLUE_TAG_MAX_ID = 45;
     private static final int APRILTAG_PIPELINE = 4;  // Limelight pipeline slot
     private static final double KP = 0.02;  // turn power per degree off target
+    // Turn power pushing against the turning, per degree per second the robot is turning, so it
+    // slows down on the way in rather than swinging past. Raise it if the robot still overshoots;
+    // lower it if it creeps in too slowly at the end.
+    private static final double KD = 0.003;
     private static final double MAX_TURN = 0.5;
-    // Least turn power used outside tolerance, so the robot doesn't stall just short of its
-    // target when KP alone asks for too little power to move. Too high makes it overshoot back
+    // Least turn power used when the robot has stopped short of its target, so it doesn't stall
+    // there when KP alone asks for too little power to move. Too high makes it overshoot back
     // and forth; tune on the robot.
     private static final double MIN_TURN = 0.06;
     private static final double TOLERANCE_DEG = 1.0;
+    // Turning slower than this counts as stopped
+    private static final double STOPPED_TURN_RATE_DEG = 5.0;  // degrees per second
     private static final long MAX_RESULT_STALENESS = 100;  // milliseconds
     // Frames taken while spinning faster than this are blurry and timing-sensitive, so they
     // don't update the memory
     private static final double MAX_MEMORY_UPDATE_TURN_RATE_DEG = 90.0;  // degrees per second
+    // Where our alliance's two CELLS are on the field, for aiming before any tags have been
+    // seen. In the red alliance's coordinates, which every OpMode uses whichever alliance we're
+    // on: the blue side of the field is the red side turned halfway around.
+    private static final Pose[] MAP_CELL_POSITIONS = {new Pose(58, 55.25), new Pose(58, 86.25)};
 
     private final Limelight3A limelight;
     private final Follower follower;
+    private final GoBildaPinpointDriver pinpoint;
+    private final boolean poseOnField;
     private final PoseHistory poseHistory = new PoseHistory();
     private final HiveMemory memory = new HiveMemory();
     // This frame's alliance tags: upright, standing ones, all on the up CELL, to aim at; and
@@ -65,17 +88,26 @@ public class HiveAim {
     private final CellReadiness cellReadiness = new CellReadiness();
     private boolean cornersMissing = false;
     private boolean tiltMissing = false;
-    // Degrees to turn the robot to face the middle of the tags in view; positive is
-    // counterclockwise (left)
-    private double aimErrorDeg = 0;
+    // The heading, in radians, that faces the middle of the tags in view, from the latest frame;
+    // only meaningful while hasTarget()
+    private double cameraTargetHeading = 0;
     private long lastResultMillis = -1;
 
     private Boolean memoryRedAlliance = null;
     private boolean aimHeld = false;
-    private boolean reachedRememberedHeading = false;
+    private boolean reachedExpectedHeading = false;
 
-    public HiveAim(HardwareMap hardwareMap, Follower follower) {
+    /**
+     * poseOnField is whether the follower's pose is in field coordinates, so the field map can be
+     * used to aim before any tags have been seen.
+     */
+    public HiveAim(HardwareMap hardwareMap, Follower follower, boolean poseOnField) {
         this.follower = follower;
+        this.poseOnField = poseOnField;
+        Localizer localizer = follower.getPoseTracker().getLocalizer();
+        pinpoint = localizer instanceof PinpointLocalizer
+                ? ((PinpointLocalizer) localizer).getPinpoint()
+                : null;
         limelight = hardwareMap.tryGet(Limelight3A.class, "limelight");
         if (limelight != null) {
             limelight.setPollRateHz(100);  // how many times/sec to request data
@@ -113,13 +145,15 @@ public class HiveAim {
 
         readCamera(redAlliance);
 
-        // Latched, so the driver turning off the remembered heading doesn't make aiming take
+        // Latched, so the driver turning off the expected heading doesn't make aiming take
         // turning back and snap the robot back onto it
+        Pose expected = expectedTarget();
         if (!aimHeld || hasTarget()) {
-            reachedRememberedHeading = false;
-        } else if (!memory.isEmpty()
-                && Math.abs(memory.headingErrorDeg(follower.getPose())) < TOLERANCE_DEG) {
-            reachedRememberedHeading = true;
+            reachedExpectedHeading = false;
+        } else if (expected != null
+                && Math.abs(headingErrorTo(follower.getPose(), expected)) < TOLERANCE_DEG
+                && isStopped()) {
+            reachedExpectedHeading = true;
         }
     }
 
@@ -132,7 +166,6 @@ public class HiveAim {
             cornersMissing = false;
             tiltMissing = false;
             cellReadiness.clear();
-            aimErrorDeg = 0;
             return;
         }
         // The same result comes back until the Limelight sends a new one, which can take several
@@ -172,7 +205,6 @@ public class HiveAim {
             }
         }
         if (aimTags.isEmpty()) {
-            aimErrorDeg = 0;
             cellReadiness.clear();
             return;
         }
@@ -183,12 +215,15 @@ public class HiveAim {
         // them. With 3D positions, aim the robot's center at them instead; without, the camera's
         // angle is the best there is.
         Pose middle = aimTags.middleRobotPosition();
-        aimErrorDeg = middle != null
+        double aimErrorDeg = middle != null
                 ? Math.toDegrees(Math.atan2(middle.getY(), middle.getX()))
                 : -aimTags.middleTx();  // positive tx means the tags are to the right
+        // The frame shows the tags as they were when it was captured, so the heading that faces
+        // them is worked out from where the robot was facing then
+        Pose facing = robotAtCapture != null ? robotAtCapture : follower.getPose();
+        cameraTargetHeading = facing.getHeading() + Math.toRadians(aimErrorDeg);
 
-        boolean turningSlowly = Math.abs(Math.toDegrees(follower.getAngularVelocity()))
-                < MAX_MEMORY_UPDATE_TURN_RATE_DEG;
+        boolean turningSlowly = Math.abs(turnRateDeg()) < MAX_MEMORY_UPDATE_TURN_RATE_DEG;
         if (middle != null && robotAtCapture != null && turningSlowly) {
             memory.remember(LimelightMount.fieldPosition(middle, robotAtCapture));
         }
@@ -223,41 +258,102 @@ public class HiveAim {
 
     /**
      * Whether aiming should replace the driver's turning: the aim button is held, there's
-     * something to aim at (tags in view, or a remembered HIVE position), and the robot hasn't
-     * already reached the remembered heading without seeing any tags there.
+     * something to aim at (tags in view, or else see expectedTarget()), and the robot hasn't
+     * already reached the expected heading without seeing any tags there.
      */
     public boolean isControllingTurn() {
-        return aimHeld && (hasTarget() || !memory.isEmpty()) && !reachedRememberedHeading;
+        return aimHeld && (hasTarget() || expectedTarget() != null) && !reachedExpectedHeading;
+    }
+
+    /**
+     * Where to aim with no tags in view: the remembered HIVE, or before any tags have been seen,
+     * the nearer of our two CELLS on the field map. Null with neither.
+     */
+    private Pose expectedTarget() {
+        return memory.isEmpty() ? nearestMapCell() : memory.getPosition();
+    }
+
+    /** The field map's CELL nearest the robot; null unless the pose is in field coordinates. */
+    private Pose nearestMapCell() {
+        if (!poseOnField) {
+            return null;
+        }
+        Pose robot = follower.getPose();
+        Pose nearest = null;
+        for (Pose cell : MAP_CELL_POSITIONS) {
+            if (nearest == null || robot.distanceFrom(cell) < robot.distanceFrom(nearest)) {
+                nearest = cell;
+            }
+        }
+        return nearest;
     }
 
     /**
      * Turn power that points the robot at the HIVE, in Pedro Pathing's convention (positive turns
-     * counterclockwise): from the camera when tags are in view, otherwise toward the remembered
-     * HIVE position. 0 with nothing to aim at or once within tolerance.
+     * counterclockwise): toward the tags when they're in view, otherwise toward expectedTarget().
+     * 0 with nothing to aim at, or once stopped within tolerance.
      */
     public double getTurn() {
-        // Positive error means the HIVE is counterclockwise of where the robot is facing
-        double errorDeg;
+        double errorDeg = headingErrorDeg();
+        if (Double.isNaN(errorDeg)) {
+            return 0;
+        }
+        boolean onTarget = Math.abs(errorDeg) < TOLERANCE_DEG;
+        if (onTarget && isStopped()) {
+            return 0;
+        }
+        // Pushes toward the target harder the farther off it is, and against the turning harder
+        // the faster it's turning -- like a shock absorber
+        double power = KP * errorDeg - KD * turnRateDeg();
+        if (!onTarget && isStopped()) {
+            power = Math.signum(errorDeg) * Math.max(Math.abs(power), MIN_TURN);
+        }
+        return Math.max(-MAX_TURN, Math.min(MAX_TURN, power));
+    }
+
+    /**
+     * Degrees to turn from the robot's heading to face what it's aiming at, in (-180, 180],
+     * positive counterclockwise (left): the tags in view, otherwise expectedTarget(). NaN with
+     * nothing to aim at.
+     */
+    private double headingErrorDeg() {
+        Pose robot = follower.getPose();
         if (hasTarget()) {
-            errorDeg = aimErrorDeg;
-        } else if (!memory.isEmpty()) {
-            errorDeg = memory.headingErrorDeg(follower.getPose());
-        } else {
-            return 0;
+            return wrapDeg(Math.toDegrees(cameraTargetHeading - robot.getHeading()));
         }
-        if (Math.abs(errorDeg) < TOLERANCE_DEG) {
-            return 0;
-        }
-        double power = Math.max(MIN_TURN, Math.min(MAX_TURN, KP * Math.abs(errorDeg)));
-        return Math.signum(errorDeg) * power;
+        Pose expected = expectedTarget();
+        return expected == null ? Double.NaN : headingErrorTo(robot, expected);
+    }
+
+    /** Signed degrees from robot's heading to face point, in (-180, 180]. */
+    private static double headingErrorTo(Pose robot, Pose point) {
+        double bearing = Math.atan2(point.getY() - robot.getY(), point.getX() - robot.getX());
+        return wrapDeg(Math.toDegrees(bearing - robot.getHeading()));
+    }
+
+    /** An angle in degrees, wrapped into (-180, 180]. */
+    private static double wrapDeg(double degrees) {
+        double radians = Math.toRadians(degrees);
+        return Math.toDegrees(Math.atan2(Math.sin(radians), Math.cos(radians)));
+    }
+
+    /**
+     * How fast the robot is turning, in degrees per second, positive counterclockwise, as of the
+     * last follower.update(). Read from the Pinpoint itself: in Pedro Pathing 2.0.2,
+     * follower.getAngularVelocity() with a Pinpoint returns the robot's heading instead.
+     */
+    private double turnRateDeg() {
+        return pinpoint == null ? 0 : pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.DEGREES);
+    }
+
+    private boolean isStopped() {
+        return Math.abs(turnRateDeg()) < STOPPED_TURN_RATE_DEG;
     }
 
     /** What aiming is doing, or would do if the aim button were held, for telemetry. */
     public String describeStatus() {
-        if (limelight == null) {
-            return "no camera -- no \"limelight\" configured";
-        }
         if (hasTarget()) {
+            double aimErrorDeg = headingErrorDeg();
             String state = Math.abs(aimErrorDeg) < TOLERANCE_DEG ? "LOCKED (camera)"
                     : aimHeld ? "TURNING to tags (camera)"
                     : "tags in view (camera)";
@@ -265,39 +361,49 @@ public class HiveAim {
                     state, aimTags.size(), Math.abs(aimErrorDeg),
                     aimErrorDeg >= 0 ? "left" : "right", describeIgnored());
         }
-        if (memory.isEmpty()) {
-            return "no data" + describeIgnored();
+        String notes = limelight == null
+                ? "; no camera -- no \"limelight\" configured" : describeIgnored();
+        Pose expected = expectedTarget();
+        if (expected == null) {
+            return "no data" + notes;
         }
-        String state = reachedRememberedHeading
-                ? "ON REMEMBERED HEADING -- no tags in view, gamepad 1 turns"
-                : aimHeld ? "TURNING to remembered HIVE"
-                : "remembered HIVE";
+        String target = memory.isEmpty() ? "nearest CELL (field map)" : "remembered HIVE";
+        String state = reachedExpectedHeading
+                ? "ON HEADING to " + target + " -- no tags in view, gamepad 1 turns"
+                : aimHeld ? "TURNING to " + target
+                : target;
         Pose robot = follower.getPose();
         double headingDeg = Utils.degrees(robot.getHeading());
         double targetDeg = Utils.degrees(
-                robot.getHeading() + Math.toRadians(memory.headingErrorDeg(robot)));
+                robot.getHeading() + Math.toRadians(headingErrorTo(robot, expected)));
         return String.format(Locale.US, "%s, heading %.0f° -> %.0f°%s",
-                state, headingDeg, targetDeg, describeIgnored());
+                state, headingDeg, targetDeg, notes);
     }
 
     /**
      * Where the remembered HIVE is, for telemetry: how far away and which way to turn to face it
-     * from where the robot is now, and how long ago tags last updated it.
+     * from where the robot is now, and how long ago tags last updated it. Before any tags have
+     * been seen, the same for the field map's nearest CELL.
      */
     public String describeHive() {
-        if (limelight == null) {
-            return "n/a -- no camera";
+        if (!memory.isEmpty()) {
+            return String.format(Locale.US, "%s, seen %.1fs ago",
+                    describeFromRobot(memory.getPosition()), memory.secondsSinceSeen());
         }
-        if (memory.isEmpty()) {
-            return "not seen yet (needs tags in view, with Full 3D on in the Limelight)";
-        }
+        String notSeen = limelight == null ? "no camera"
+                : "not seen yet (needs tags in view, with Full 3D on in the Limelight)";
+        Pose cell = nearestMapCell();
+        return cell == null ? notSeen
+                : notSeen + "; nearest CELL on field map " + describeFromRobot(cell);
+    }
+
+    /** How far away point is and which way to turn to face it, e.g. "4'8\" away, 12° left". */
+    private String describeFromRobot(Pose point) {
         Pose robot = follower.getPose();
-        Pose hive = memory.getPosition();
-        double turnDeg = memory.headingErrorDeg(robot);  // positive is counterclockwise (left)
-        long inches = Math.round(robot.distanceFrom(hive));
-        return String.format(Locale.US, "%d'%d\" away, %.0f° %s, seen %.1fs ago",
-                inches / 12, inches % 12, Math.abs(turnDeg), turnDeg >= 0 ? "left" : "right",
-                memory.secondsSinceSeen());
+        double turnDeg = headingErrorTo(robot, point);  // positive is counterclockwise (left)
+        long inches = Math.round(robot.distanceFrom(point));
+        return String.format(Locale.US, "%d'%d\" away, %.0f° %s",
+                inches / 12, inches % 12, Math.abs(turnDeg), turnDeg >= 0 ? "left" : "right");
     }
 
     /** A line per visible alliance tag, for debugging; see TagDebugTelemetry. */

@@ -42,12 +42,4 @@ final class HiveMemory {
     double secondsSinceSeen() {
         return sinceSeen.seconds();
     }
-
-    /** Signed degrees from robot's heading to the remembered position, in (-180, 180]. */
-    double headingErrorDeg(Pose robot) {
-        double bearing = Math.atan2(position.getY() - robot.getY(),
-                position.getX() - robot.getX());
-        double error = bearing - robot.getHeading();
-        return Math.toDegrees(Math.atan2(Math.sin(error), Math.cos(error)));
-    }
 }
