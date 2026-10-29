@@ -5,6 +5,7 @@ import com.pedropathing.ftc.drivetrains.Mecanum;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
@@ -18,17 +19,17 @@ import java.util.List;
 
 /*
  * Controls for Gamepad 1:
- *   Left Stick:     Move forward & backward, strafe left & right
+ *   Left Stick:     Move forward & backward, strafe left & right. In driver's view drive,
+ *                   moves relative to the driver standing at the red side of the field instead:
+ *                   up drives away from the driver, left drives to the driver's left
  *   Left Trigger:   Turn counterclockwise
  *   Right Trigger:  Turn clockwise
+ *   X + Left Trigger: Toggle driver's view drive (hold X, then pull the trigger). The triggers
+ *                   don't turn while X is held. Needs the pose from EB Auton to know which way
+ *                   is away from the driver; otherwise "away" is the way the robot faced at START
  *   A:              Fast Drive Mode
  *   B:              Slow Drive Mode
- *   Y:              Auto-aim at the HIVE (hold). Overrides turning with the triggers. Aims
- *                   with the HIVE AprilTags when they're visible, otherwise turns toward where
- *                   the HIVE was last seen -- or, before any tags have been seen, toward the
- *                   nearer of our two CELLS on the field map (only after EB Auton, which puts
- *                   odometry in field coordinates). If it gets there and still can't see any
- *                   tags, the triggers can turn again until Y is released or tags come into view
+ *   Y:              Auto-aim at the HIVE (hold). Overrides turning with the triggers.
  *
  * Controls for Gamepad 2:
  *   Left Bumper:    Reverse intake (press to turn on or off)
@@ -36,13 +37,13 @@ import java.util.List;
  *   Right Trigger:  Shoot (hold)
  *   Dpad Up/Down:   Increase / decrease intake power
  *   A:
- *   B:              Toggle alliance (Red / Blue). Can be pressed during INIT. Starts on the
- *                   alliance chosen in EB Auton, or Red if EB Auton hasn't run. Ignored
- *                   while Start is held, so Start + B (making a controller gamepad 2) doesn't
- *                   change it
+ *   B:
  *   Y:
  *
  * Either gamepad:
+ *   X + B:          Toggle alliance (Red / Blue): hold X, then press B. Can be done during
+ *                   INIT. Starts on the alliance chosen in EB Auton, or Red if EB Auton
+ *                   hasn't run
  *   X + Dpad Left:  Telemetry at INFO (the default)
  *   X + Dpad Right: Telemetry at DEBUG (adds per-tag, motor power, and joystick lines)
  *
@@ -73,6 +74,10 @@ public class BiobuzzTeleop extends LinearOpMode {
     private HiveAim hiveAim;
     private final LogLevel logLevel = new LogLevel();
     private boolean fastDriveMode = true;
+    // Whether the left stick moves the robot relative to the driver rather than to the robot's
+    // front
+    private boolean driverViewDrive = false;
+    private boolean leftTriggerWasDown = false;
     private boolean redAlliance = true;
     // Where redAlliance and the starting pose came from, for telemetry
     private String allianceSource = "default";
@@ -91,7 +96,7 @@ public class BiobuzzTeleop extends LinearOpMode {
             follower.update();  // keeps odometry current, for remembering where the HIVE is
             hiveAim.update(redAlliance, false);
             addStatusTelemetry();
-            telemetry.addData(">", "Press gamepad2 B to change alliance. Press START.");
+            telemetry.addData(">", "Hold X and press B to change alliance. Press START.");
             logLevel.addTelemetry(telemetry);
             telemetry.update();
         }
@@ -147,13 +152,16 @@ public class BiobuzzTeleop extends LinearOpMode {
         }
     }
 
+    /** Hold X and press B, on either gamepad, to switch alliance. */
     private void toggleAlliance() {
-        // Read every pass, so a press made while Start is held is used up rather than counted
-        // once Start is let go
-        boolean bPressed = gamepad2.bWasPressed();
-        if (bPressed && !gamepad2.start) {
-            redAlliance = !redAlliance;
-            allianceSource = "set with B";
+        for (Gamepad gamepad : new Gamepad[]{gamepad1, gamepad2}) {
+            // Read every pass, so a B press made without X held is used up rather than counted
+            // once X is pressed
+            boolean bPressed = gamepad.bWasPressed();
+            if (bPressed && gamepad.x) {
+                redAlliance = !redAlliance;
+                allianceSource = "set with X + B";
+            }
         }
     }
 
@@ -161,16 +169,24 @@ public class BiobuzzTeleop extends LinearOpMode {
         // Check if FastMode is being toggled on or off
         if (gamepad1.a) {
             fastDriveMode = true;
-        } else if (gamepad1.b) {
+        } else if (gamepad1.b && !gamepad1.x) {
             fastDriveMode = false;
         }
 
-        // Run wheels in POV mode
+        // Hold X and pull the left trigger to switch driver's view drive on or off. The trigger
+        // is checked every pass so each pull counts once, as it starts.
+        boolean leftTriggerDown = gamepad1.left_trigger > 0.5;
+        if (gamepad1.x && leftTriggerDown && !leftTriggerWasDown) {
+            driverViewDrive = !driverViewDrive;
+        }
+        leftTriggerWasDown = leftTriggerDown;
+
         // The left stick moves the robot fwd/back and strafes left/right
-        // The triggers turn the robot counterclockwise and clockwise
+        // The triggers turn the robot counterclockwise and clockwise, except while X is held, so
+        // X + left trigger doesn't spin the robot
         double drive = -gamepad1.left_stick_y;
         double strafe = -gamepad1.left_stick_x;
-        double turn = gamepad1.left_trigger - gamepad1.right_trigger;
+        double turn = gamepad1.x ? 0 : gamepad1.left_trigger - gamepad1.right_trigger;
 
         // Auto-aim replaces the driver's turn input while gamepad1 Y is held, when it has
         // something to aim at (see HiveAim.isControllingTurn)
@@ -188,7 +204,10 @@ public class BiobuzzTeleop extends LinearOpMode {
         // setMaxPower scales all wheel powers down proportionally (rather than clipping) when
         // the requested drive exceeds it, so slow mode stays proportional to the joystick input.
         follower.setMaxPower(powerLimit);
-        follower.setTeleOpDrive(drive, strafe, turn, true);
+        // Robot centric: forward is the robot's front. Otherwise Pedro Pathing's field centric
+        // drive, where forward is the field's +x and left its +y -- in the red alliance's field
+        // coordinates, which every OpMode uses, that's away from the driver and to their left.
+        follower.setTeleOpDrive(drive, strafe, turn, !driverViewDrive);
         follower.update();
     }
 
@@ -246,6 +265,12 @@ public class BiobuzzTeleop extends LinearOpMode {
     private void updateTelemetry() {
         addStatusTelemetry();
         telemetry.addData("Fast Drive Mode", fastDriveMode);
+        telemetry.addData("Stick Drive", !driverViewDrive
+                ? "robot's front (X + left trigger to switch)"
+                : poseOnField
+                ? "driver's view (X + left trigger to switch)"
+                : "driver's view -- no pose from auton, so 'away' is the way the robot faced at"
+                        + " START");
 
         if (logLevel.isDebug()) {
             List<DcMotorEx> motors = drivetrain.getMotors();
