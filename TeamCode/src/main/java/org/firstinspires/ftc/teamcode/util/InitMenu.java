@@ -114,16 +114,12 @@ public class InitMenu {
         }
 
         telemetry.addLine(title);
-        telemetry.addLine("D-pad up/down: pick row. Left/right: change value.");
-        if (gamepad1.getGamepadId() == Gamepad.ID_UNASSOCIATED
-                && gamepad2.getGamepadId() == Gamepad.ID_UNASSOCIATED) {
-            telemetry.addLine("No gamepad connected -- press Start+A (or Start+B) to connect one.");
-        }
         telemetry.addLine("------------");
         for (int i = 0; i < choices.size(); i++) {
             telemetry.addLine(formatRow(choices.get(i), i == row));
         }
         telemetry.addLine("------------");
+        telemetry.addLine();
     }
 
     /** Whether a d-pad press counts for the menu: not while that gamepad's X is held. */
@@ -135,6 +131,6 @@ public class InitMenu {
         String value = choice.label.apply(choice.get());
         return highlighted
                 ? "> " + choice.name + ": < " + value + " >"
-                : "   " + choice.name + ": " + value;
+                : "  " + choice.name + ": " + value;
     }
 }

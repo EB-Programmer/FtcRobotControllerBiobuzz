@@ -7,7 +7,7 @@ import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.routes.DownCellRoute;
 import org.firstinspires.ftc.teamcode.routes.Route;
 import org.firstinspires.ftc.teamcode.routes.RouteActions;
@@ -15,11 +15,13 @@ import org.firstinspires.ftc.teamcode.routes.UpCell4Route;
 import org.firstinspires.ftc.teamcode.routes.UpCellRoute;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.subsystems.RobotHardware;
 import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.InitMenu;
 import org.firstinspires.ftc.teamcode.util.LogLevel;
 import org.firstinspires.ftc.teamcode.util.LoopTimer;
 import org.firstinspires.ftc.teamcode.util.MatchSettings;
+import org.firstinspires.ftc.teamcode.util.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +48,7 @@ public class BiobuzzAuton extends LinearOpMode {
 
     private static final double MAX_POWER = 0.5;
 
+    private RobotHardware hardware;
     private Follower follower;
     private FollowerTelemetry followerTelemetry;
     private Intake intake;
@@ -67,13 +70,19 @@ public class BiobuzzAuton extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-        follower = Constants.createFollower(hardwareMap);
-        followerTelemetry = new FollowerTelemetry(follower, telemetry);
-        intake = new Intake(hardwareMap);
-        hiveAim = new HiveAim(hardwareMap, follower, true);  // routes are in field coordinates
-        hiveAim.start();  // during init, so the camera is already sending results at Start
+        // Routes are in field coordinates, so odometry is too
+        hardware = new RobotHardware(hardwareMap, telemetry, true);
+        follower = hardware.follower;
+        followerTelemetry = hardware.followerTelemetry;
+        intake = hardware.intake;
+        hiveAim = hardware.hiveAim;
+
+        // Init and the route line their values up with Utils.column(); the end-of-run summary is
+        // long sentences, which fit better in the regular font
+        telemetry.setDisplayFormat(Telemetry.DisplayFormat.MONOSPACE);
         runInitMenu();
         if (isStopRequested()) {
+            telemetry.setDisplayFormat(Telemetry.DisplayFormat.CLASSIC);
             hiveAim.stop();
             return;
         }
@@ -84,37 +93,34 @@ public class BiobuzzAuton extends LinearOpMode {
         intake.set(Intake.State.OFF);  // a route can leave it running after its last path
         // Saved even when Stop cut the route short, so teleop starts from wherever the robot is
         MatchSettings.autonEndPose = follower.getPose();
+        telemetry.setDisplayFormat(Telemetry.DisplayFormat.CLASSIC);
         showSummaryUntilStop(results);
         hiveAim.stop();
     }
 
     /** Shows the setup menu until Start (or Stop), loading whichever route is chosen. */
     private void runInitMenu() {
-        InitMenu menu = new InitMenu("EB Auton setup");
+        InitMenu menu = new InitMenu("Auton Setup");
         redAllianceChoice = menu.choice("Alliance", new Boolean[]{true, false},
                 red -> red ? "RED" : "BLUE");
         InitMenu.Choice<Route> routeChoice =
                 menu.choice("Route", routes, route -> route.getClass().getSimpleName());
 
         while (opModeInInit()) {
-            follower.update();  // keeps odometry, and so the Pinpoint status below, current
+            follower.update();  // keeps odometry, and so the Pinpoint status, current
             logLevel.update(gamepad1, gamepad2);
             menu.update(gamepad1, gamepad2, telemetry);
             if (routeChoice.changed()) {
                 loadRoute(routeChoice.get());
             }
             if (routeError == null) {
-                telemetry.addData("Status", "Ready to run");
+                telemetry.addData(Utils.column("Status"), "Ready to run");
             } else {
-                telemetry.addData("Status", "ROUTE ERROR -- robot won't move");
+                telemetry.addData(Utils.column("Status"), "ROUTE ERROR -- robot won't move");
                 telemetry.addLine(routeError);
             }
-            telemetry.addData("Pinpoint", followerTelemetry.pinpointStatus());
-            telemetry.addData("Intake", intake.isPresent()
-                    ? "found" : "not found -- route intake actions do nothing");
-            telemetry.addData("Limelight", hiveAim.hasCamera()
-                    ? "found" : "not found -- waitForCellReady() is skipped");
-            logLevel.addTelemetry(telemetry);
+            hardware.addInitTelemetry(telemetry);
+            telemetry.addData(Utils.column("Log"), logLevel.describe());
             telemetry.update();
         }
     }
@@ -225,15 +231,15 @@ public class BiobuzzAuton extends LinearOpMode {
         logLevel.update(gamepad1, gamepad2);
         double loopMs = loopTimer.lap();
 
-        telemetry.addData("Step", "%s: %s,   %.1fs / 30s total",
+        telemetry.addData(Utils.column("Step"), "%s: %s,   %.1fs / 30s total",
                 actionStep, activity, autonTimer.seconds());
         followerTelemetry.addPose(holdPose);
         if (logLevel.isDebug()) {
-            telemetry.addData("CELL", hiveAim.describeCellReadiness());
+            telemetry.addData(Utils.column("CELL"), hiveAim.describeCellReadiness());
             hiveAim.addTagTelemetry(telemetry);
         }
         followerTelemetry.addHealth(loopMs);
-        logLevel.addTelemetry(telemetry);
+        telemetry.addData(Utils.column("Log"), logLevel.describe());
         followerTelemetry.addWarnings();
         telemetry.update();
     }
@@ -244,19 +250,19 @@ public class BiobuzzAuton extends LinearOpMode {
      * go last so they never move the other lines.
      */
     private void addFollowingTelemetry(int pathIndex, Path path, double loopMs) {
-        telemetry.addData("Step", "path %d / %d,   %.1fs / 30s total",
+        telemetry.addData(Utils.column("Step"), "path %d / %d,   %.1fs / 30s total",
                 pathIndex + 1, pathSequence.size(), autonTimer.seconds());
         followerTelemetry.addPose(path.getPose(1));
         if (logLevel.isDebug()) {
-            telemetry.addData("Off path", "%.1f in, %.1f° heading",
+            telemetry.addData(Utils.column("Off path"), "%.1f in, %.1f° heading",
                     follower.getTranslationalError().getMagnitude(),
                     Math.toDegrees(follower.getHeadingError()));
-            telemetry.addData("Progress", "%.0f%%, %.1f in left",
+            telemetry.addData(Utils.column("Progress"), "%.0f%%, %.1f in left",
                     follower.getPathCompletion() * 100, follower.getDistanceRemaining());
             hiveAim.addTagTelemetry(telemetry);
         }
         followerTelemetry.addHealth(loopMs);
-        logLevel.addTelemetry(telemetry);
+        telemetry.addData(Utils.column("Log"), logLevel.describe());
 
         followerTelemetry.addWarnings();
         if (followerTelemetry.isStalled()) {

@@ -22,7 +22,9 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
   those paths with what the robot does at the start and after each path, using the helpers in
   `RouteActions`.
 - `subsystems/` -- robot mechanisms: `Shooter`, `Intake`, and `HiveAim` (Limelight auto-aim) with its helpers
-  `TagCorners`, `TagTilt`, `TagCluster`, `HiveMemory`, `LimelightMount`, and `TagDebugTelemetry`.
+  `TagCorners`, `TagTilt`, `TagCluster`, `HiveMemory`, `LimelightMount`, and `TagDebugTelemetry`;
+  plus `RobotHardware`, which sets them all up the same way for both OpModes and reports what it
+  found on the init screen.
 - `util/` -- general helpers: the INIT settings menu (`InitMenu`), the INFO/DEBUG telemetry switch
   (`LogLevel`; X + d-pad left/right on either gamepad, in both OpModes), what EB Auton hands on
   to EB Teleop (`MatchSettings`: the alliance and where the robot ended up), follower telemetry,

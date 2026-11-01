@@ -41,8 +41,13 @@ public class LogLevel {
 
     /** Adds a line showing the current level and how to switch, for the bottom of the screen. */
     public void addTelemetry(Telemetry telemetry) {
-        telemetry.addData("Log", debug
+        telemetry.addData("Log", describe());
+    }
+
+    /** The current level and how to switch, for a screen that lays out its own lines. */
+    public String describe() {
+        return debug
                 ? "DEBUG (X + d-pad left for INFO)"
-                : "INFO (X + d-pad right for DEBUG)");
+                : "INFO (X + d-pad right for DEBUG)";
     }
 }

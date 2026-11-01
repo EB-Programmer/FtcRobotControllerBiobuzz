@@ -391,7 +391,7 @@ public class HiveAim {
                     describeFromRobot(memory.getPosition()), memory.secondsSinceSeen());
         }
         String notSeen = limelight == null ? "no camera"
-                : "not seen yet (needs tags in view, with Full 3D on in the Limelight)";
+                : "not seen yet (needs tags in view)";
         Pose cell = nearestMapCell();
         return cell == null ? notSeen
                 : notSeen + "; nearest CELL on field map " + describeFromRobot(cell);

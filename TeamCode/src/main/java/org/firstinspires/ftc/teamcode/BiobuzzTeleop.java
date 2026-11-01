@@ -6,9 +6,10 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
-import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.subsystems.RobotHardware;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.LogLevel;
@@ -66,8 +67,8 @@ public class BiobuzzTeleop extends LinearOpMode {
     // app restarts
     private static double intakePower = Intake.DEFAULT_POWER;
 
+    private RobotHardware hardware;
     private Follower follower;
-    private FollowerTelemetry followerTelemetry;
     private Mecanum drivetrain;
     private Shooter shooter;
     private Intake intake;
@@ -79,8 +80,9 @@ public class BiobuzzTeleop extends LinearOpMode {
     private boolean driverViewDrive = false;
     private boolean leftTriggerWasDown = false;
     private boolean redAlliance = true;
-    // Where redAlliance and the starting pose came from, for telemetry
-    private String allianceSource = "default";
+    // Where redAlliance and the starting pose came from, for telemetry. While the alliance is
+    // still the default, its note is a reminder of how to change it instead.
+    private String allianceSource = "X + B to change";
     private String poseSource = "started at 0, 0";
     // Whether odometry is in field coordinates, which it is only when picked up from EB Auton
     private boolean poseOnField = false;
@@ -90,16 +92,19 @@ public class BiobuzzTeleop extends LinearOpMode {
         initHardware();
 
         // Wait for the game to start (driver presses START). Alliance can be chosen meanwhile.
+        telemetry.setDisplayFormat(Telemetry.DisplayFormat.MONOSPACE);  // for Utils.column()
         while (opModeInInit()) {
             toggleAlliance();
             logLevel.update(gamepad1, gamepad2);
             follower.update();  // keeps odometry current, for remembering where the HIVE is
             hiveAim.update(redAlliance, false);
-            addStatusTelemetry();
-            telemetry.addData(">", "Hold X and press B to change alliance. Press START.");
-            logLevel.addTelemetry(telemetry);
+            hardware.addInitTelemetry(telemetry);
+            addPoseTelemetry();
+            addAimTelemetry();
+            telemetry.addData(Utils.column("Log"), logLevel.describe());
             telemetry.update();
         }
+        telemetry.setDisplayFormat(Telemetry.DisplayFormat.CLASSIC);
         if (isStopRequested()) {
             hiveAim.stop();
             return;
@@ -126,16 +131,14 @@ public class BiobuzzTeleop extends LinearOpMode {
     }
 
     private void initHardware() {
-        follower = Constants.createFollower(hardwareMap);
-        takeMatchSettings();
-        followerTelemetry = new FollowerTelemetry(follower, telemetry);
+        poseOnField = MatchSettings.autonEndPose != null;
+        hardware = new RobotHardware(hardwareMap, telemetry, poseOnField);
+        follower = hardware.follower;
+        shooter = hardware.shooter;
+        intake = hardware.intake;
+        hiveAim = hardware.hiveAim;
         drivetrain = (Mecanum) follower.getDrivetrain();
-        shooter = new Shooter(hardwareMap);
-        intake = new Intake(hardwareMap);
-        hiveAim = new HiveAim(hardwareMap, follower, poseOnField);
-
-        // Started during init so the driver can check that the tags are visible before START
-        hiveAim.start();
+        takeMatchSettings();
     }
 
     /** Picks up the alliance and robot pose that EB Auton left in MatchSettings, if any. */
@@ -148,7 +151,6 @@ public class BiobuzzTeleop extends LinearOpMode {
             follower.setStartingPose(MatchSettings.autonEndPose);
             MatchSettings.autonEndPose = null;
             poseSource = "from auton";
-            poseOnField = true;
         }
     }
 
@@ -230,8 +232,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         if (!intake.isPresent()) {
             return;
         }
-        intakePower = Utils.tuneConstant(telemetry, "Intake Power", intakePower,
-                powerUpPressed, powerDownPressed, 0.05, 1.0);
+        intakePower = Utils.tuneConstant(intakePower, powerUpPressed, powerDownPressed, 0.05, 1.0);
         intake.setPower(intakePower);
         Intake.State state = intake.getState();
         if (forwardPressed) {
@@ -241,36 +242,40 @@ public class BiobuzzTeleop extends LinearOpMode {
         }
     }
 
-    /** Pinpoint, shooter, intake, and aim status, shown both during init and while driving. */
-    private void addStatusTelemetry() {
-        telemetry.addData("Pinpoint", followerTelemetry.pinpointStatus());
-        telemetry.addData("Pose", "%s (%s)",
+    /** A caption for a line shown on both screens: lined up in a column on the init screen. */
+    private String caption(String name) {
+        return opModeInInit() ? Utils.column(name) : name;
+    }
+
+    private void addPoseTelemetry() {
+        telemetry.addData(caption("Pose"), "%s (%s)",
                 FollowerTelemetry.describePose(follower.getPose()), poseSource);
-        if (shooter.isPresent()) {
-            telemetry.addData("Shooter RPM", "%.0f", shooter.getRpm());
-        } else {
-            telemetry.addData("Shooter", "not found -- shooter controls disabled");
-        }
-        telemetry.addData("Intake", intake.isPresent()
-                ? String.valueOf(intake.getState())
-                : "not found -- intake controls disabled");
-        telemetry.addData("Aim", "%s (%s), %s", redAlliance ? "RED" : "BLUE", allianceSource,
-                hiveAim.describeStatus());
-        telemetry.addData("HIVE", hiveAim.describeHive());
+    }
+
+    /** Which alliance is aimed at and what the camera sees, shown during init and driving. */
+    private void addAimTelemetry() {
+        telemetry.addData(caption("Aim"), "%s (%s), %s",
+                redAlliance ? "RED" : "BLUE", allianceSource, hiveAim.describeStatus());
+        telemetry.addData(caption("HIVE"), hiveAim.describeHive());
         if (logLevel.isDebug()) {
             hiveAim.addTagTelemetry(telemetry);
         }
     }
 
     private void updateTelemetry() {
-        addStatusTelemetry();
         telemetry.addData("Fast Drive Mode", fastDriveMode);
-        telemetry.addData("Stick Drive", !driverViewDrive
-                ? "robot's front (X + left trigger to switch)"
-                : poseOnField
-                ? "driver's view (X + left trigger to switch)"
-                : "driver's view -- no pose from auton, so 'away' is the way the robot faced at"
-                        + " START");
+        if (intake.isPresent()) {
+            telemetry.addData("Intake Power", intakePower);
+        } else {
+            telemetry.addData("Intake", "not found -- intake controls disabled");
+        }
+        if (shooter.isPresent()) {
+            telemetry.addData("Shooter RPM", "%.0f", shooter.getRpm());
+        } else {
+            telemetry.addData("Shooter", "not found -- shooter controls disabled");
+        }
+        addPoseTelemetry();
+        addAimTelemetry();
 
         if (logLevel.isDebug()) {
             List<DcMotorEx> motors = drivetrain.getMotors();
@@ -285,6 +290,13 @@ public class BiobuzzTeleop extends LinearOpMode {
             telemetry.addData("gamepad1 LeftTrigger (-turn)", gamepad1.left_trigger);
         }
 
+        telemetry.addLine();
+        telemetry.addData("Stick Drive", !driverViewDrive
+                ? "robot's front (X + left trigger to switch)"
+                : poseOnField
+                ? "driver's view (X + left trigger to switch)"
+                : "driver's view -- no pose from auton, so 'away' is the way the robot faced at"
+                        + " START");
         logLevel.addTelemetry(telemetry);
         telemetry.update();
     }

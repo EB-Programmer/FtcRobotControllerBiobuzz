@@ -1,18 +1,19 @@
 package org.firstinspires.ftc.teamcode.util;
 
-import org.firstinspires.ftc.robotcore.external.Telemetry;
+import java.util.Locale;
 
 public final class Utils {
+    private static final int COLUMN_WIDTH = "Limelight".length();  // the longest caption in use
+
     private Utils() {
     }
 
     /**
-     * Nudges value up or down by increment on a button press, clamped to
-     * [0, maxValue], and reports the resulting value to telemetry under name.
+     * Nudges value up or down by increment on a button press, clamped to [0, maxValue], and
+     * returns the result.
      */
-    public static double tuneConstant(Telemetry telemetry, String name, double value,
-                                       boolean buttonUp, boolean buttonDown,
-                                       double increment, double maxValue) {
+    public static double tuneConstant(double value, boolean buttonUp, boolean buttonDown,
+                                      double increment, double maxValue) {
         if (buttonUp) {
             value = value + increment;
         } else if (buttonDown) {
@@ -30,8 +31,15 @@ public final class Utils {
             value = 0;
         }
 
-        telemetry.addData(name, value);
         return value;
+    }
+
+    /**
+     * Pads a telemetry caption so the values after it line up in a column, which takes
+     * telemetry.setDisplayFormat(Telemetry.DisplayFormat.MONOSPACE) to show properly.
+     */
+    public static String column(String caption) {
+        return String.format(Locale.US, "%-" + COLUMN_WIDTH + "s", caption);
     }
 
     /** An angle in radians as degrees, normalized to [0, 360). */

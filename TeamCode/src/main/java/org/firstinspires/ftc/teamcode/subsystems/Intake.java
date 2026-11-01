@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
  */
 public class Intake {
     public static final String HARDWARE_NAME = "intake";
-    public static final double DEFAULT_POWER = 0.8;
+    public static final double DEFAULT_POWER = 1.0;
 
     public enum State { OFF, FORWARD, REVERSE }
 

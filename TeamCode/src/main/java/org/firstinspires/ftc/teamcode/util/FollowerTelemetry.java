@@ -34,10 +34,13 @@ public class FollowerTelemetry {
         return pinpoint == null ? "n/a" : String.valueOf(pinpoint.getDeviceStatus());
     }
 
-    /** Adds the robot's current pose and the goal pose it's driving toward or holding. */
+    /**
+     * Adds the robot's current pose and the goal pose it's driving toward or holding, with
+     * captions from Utils.column().
+     */
     public void addPose(Pose goal) {
-        telemetry.addData("Pose", describePose(follower.getPose()));
-        telemetry.addData("Goal", describePose(goal));
+        telemetry.addData(Utils.column("Pose"), describePose(follower.getPose()));
+        telemetry.addData(Utils.column("Goal"), describePose(goal));
     }
 
     /** A pose as "x 12.3  y 45.6  h 90.0°". */
@@ -46,9 +49,10 @@ public class FollowerTelemetry {
                 pose.getX(), pose.getY(), Utils.degrees(pose.getHeading()));
     }
 
-    /** Adds loop time and Pinpoint status. */
+    /** Adds loop time and Pinpoint status, with a caption from Utils.column(). */
     public void addHealth(double loopMs) {
-        telemetry.addData("Health", "loop %.0f ms, Pinpoint %s", loopMs, pinpointStatus());
+        telemetry.addData(Utils.column("Health"), "loop %.0f ms, Pinpoint %s",
+                loopMs, pinpointStatus());
     }
 
     /**
