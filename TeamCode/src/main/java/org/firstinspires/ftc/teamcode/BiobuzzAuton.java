@@ -8,11 +8,11 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.teamcode.routes.DownCellRoute;
+import org.firstinspires.ftc.teamcode.routes.DownCell4Route;
 import org.firstinspires.ftc.teamcode.routes.Route;
 import org.firstinspires.ftc.teamcode.routes.RouteActions;
 import org.firstinspires.ftc.teamcode.routes.UpCell4Route;
-import org.firstinspires.ftc.teamcode.routes.UpCellRoute;
+import org.firstinspires.ftc.teamcode.routes.UpCell8Route;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.RobotHardware;
@@ -41,9 +41,9 @@ public class BiobuzzAuton extends LinearOpMode {
 
     /** Every Route the init menu offers, listed by class name. The first is the default. */
     private final Route[] routes = {
-            new UpCellRoute(),
-            new DownCellRoute(),
+            new DownCell4Route(),
             new UpCell4Route(),
+            new UpCell8Route(),
     };
 
     private static final double MAX_POWER = 0.5;

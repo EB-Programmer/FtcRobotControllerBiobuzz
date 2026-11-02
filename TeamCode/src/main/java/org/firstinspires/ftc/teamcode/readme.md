@@ -17,10 +17,10 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
 - `pedro/` -- Pedro Pathing setup. `Constants.java` holds the drivetrain motor names and directions,
   Pinpoint pod offsets, path constraints, and follower constants (mass and PIDFs, still untuned).
 - `routes/` -- the autonomous routes, two classes each, side by side: the route's paths
-  (e.g. `UpCellPath`), pasted from the online path visualizer and holding only pasted code so they
-  can be re-pasted after a change in the visualizer; and its `Route` (e.g. `UpCellRoute`), pairing
-  those paths with what the robot does at the start and after each path, using the helpers in
-  `RouteActions`.
+  (e.g. `DownCell4Path`), pasted from the online path visualizer and holding only pasted code so
+  they can be re-pasted after a change in the visualizer; and its `Route` (e.g. `DownCell4Route`),
+  pairing those paths with what the robot does at the start and after each path, using the helpers
+  in `RouteActions`.
 - `subsystems/` -- robot mechanisms: `Shooter`, `Intake`, and `HiveAim` (Limelight auto-aim) with its helpers
   `TagCorners`, `TagTilt`, `TagCluster`, `HiveMemory`, `LimelightMount`, and `TagDebugTelemetry`;
   plus `RobotHardware`, which sets them all up the same way for both OpModes and reports what it
@@ -58,8 +58,8 @@ laptop by USB and browse to `http://limelight.local:5801`):
 ## Adding an autonomous route
 
 See `routes/package-info.java`. In short: paste the visualizer's code into a new class in
-`routes/`, make a matching `Route` next to it (see `UpCellRoute`), and add it to the `routes` list
-at the top of `BiobuzzAuton`.
+`routes/`, make a matching `Route` next to it (see `DownCell4Route`), and add it to the `routes`
+list at the top of `BiobuzzAuton`.
 
 ## Constants worth knowing about
 

@@ -1,11 +1,11 @@
 {
   "version": "2.0.0",
-  "timestamp": "2026-10-28T19:51:17.468Z",
+  "timestamp": "2026-11-02T22:02:23.137Z",
   "startPoint": {
-    "x": 56,
-    "y": 8,
-    "headingDeg": 90,
-    "locked": false
+    "x": 58.7,
+    "y": 9,
+    "locked": false,
+    "headingDeg": 90
   },
   "lines": [
     {
@@ -19,29 +19,36 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 56.00000000000001,
-        "y": 33
+        "x": 58,
+        "y": 34
       },
       "controlPoints": [],
       "heading": {
         "type": "linear",
         "startDeg": 90,
-        "endDeg": -180
+        "endDeg": 90
       }
     },
     {
-      "kind": "atomic",
       "id": "line-mvsis7xm-1sj25g",
+      "color": "#76b7b2",
+      "name": "",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 0,
+      "waitBeforeName": "",
+      "waitAfterName": "",
+      "kind": "atomic",
       "endPoint": {
-        "x": 33.23039341746791,
-        "y": 7.687875658002932
+        "x": 30,
+        "y": 9
       },
       "controlPoints": [],
       "heading": {
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": -180,
+        "startDeg": 90,
         "endDeg": 180,
         "piecewiseHeading": {
           "segments": [
@@ -57,20 +64,21 @@
             }
           ]
         }
-      },
-      "color": "#76b7b2",
+      }
+    },
+    {
+      "id": "line-mvsivkeu-j2ma1d",
+      "color": "#b07aa1",
+      "name": "",
       "locked": false,
       "waitBeforeMs": 0,
       "waitAfterMs": 0,
       "waitBeforeName": "",
-      "waitAfterName": ""
-    },
-    {
+      "waitAfterName": "",
       "kind": "atomic",
-      "id": "line-mvsivkeu-j2ma1d",
       "endPoint": {
-        "x": 9.130116243763466,
-        "y": 6.006505234303584
+        "x": 9,
+        "y": 9
       },
       "controlPoints": [],
       "heading": {
@@ -78,7 +86,7 @@
         "reverse": true,
         "degrees": 0,
         "startDeg": 180,
-        "endDeg": 30,
+        "endDeg": 180,
         "piecewiseHeading": {
           "segments": [
             {
@@ -93,28 +101,29 @@
             }
           ]
         }
-      },
-      "color": "#b07aa1",
-      "locked": false,
-      "waitBeforeMs": 0,
-      "waitAfterMs": 0,
-      "waitBeforeName": "",
-      "waitAfterName": ""
+      }
     },
     {
-      "kind": "atomic",
       "id": "line-mvsixvya-5ev8rl",
+      "color": "#9c755f",
+      "name": "",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 0,
+      "waitBeforeName": "",
+      "waitAfterName": "",
+      "kind": "atomic",
       "endPoint": {
-        "x": 30.03116304193964,
-        "y": 26.717844075652035
+        "x": 58,
+        "y": 34
       },
       "controlPoints": [],
       "heading": {
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 30,
-        "endDeg": 35,
+        "startDeg": 180,
+        "endDeg": 90,
         "piecewiseHeading": {
           "segments": [
             {
@@ -129,28 +138,59 @@
             }
           ]
         }
-      },
-      "color": "#9c755f",
+      }
+    },
+    {
+      "id": "line-mvsiys02-byt1jd",
+      "color": "#76b7b2",
+      "name": "",
       "locked": false,
       "waitBeforeMs": 0,
       "waitAfterMs": 0,
       "waitBeforeName": "",
-      "waitAfterName": ""
-    },
-    {
+      "waitAfterName": "",
       "kind": "atomic",
-      "id": "line-mvsiys02-byt1jd",
       "endPoint": {
-        "x": 10.328588938996283,
-        "y": 94.2304198385729
+        "x": 24,
+        "y": 34
       },
       "controlPoints": [],
       "heading": {
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 0,
-        "endDeg": 0,
+        "startDeg": 90,
+        "endDeg": 90,
+        "piecewiseHeading": {
+          "segments": [
+            {
+              "startProgress": 0,
+              "endProgress": 1,
+              "interpolationType": "linear",
+              "reversed": false,
+              "parameters": {
+                "startDeg": 0,
+                "endDeg": 0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "atomic",
+      "id": "line-mvzt0dtc-fu1pg8",
+      "endPoint": {
+        "x": 13,
+        "y": 92
+      },
+      "controlPoints": [],
+      "heading": {
+        "type": "linear",
+        "reverse": true,
+        "degrees": 0,
+        "startDeg": 90,
+        "endDeg": 90,
         "piecewiseHeading": {
           "segments": [
             {
@@ -356,6 +396,10 @@
     {
       "kind": "path",
       "lineId": "line-mvsiys02-byt1jd"
+    },
+    {
+      "kind": "path",
+      "lineId": "line-mvzt0dtc-fu1pg8"
     }
   ],
   "fieldPoints": [],
@@ -364,8 +408,8 @@
     "strafeVelocity": 65,
     "aVelocity": 3.141592653589793,
     "kFriction": 0.1,
-    "rLength": 16,
-    "rWidth": 16,
+    "rLength": 18,
+    "rWidth": 18,
     "safetyMargin": 1,
     "maxAcceleration": 30,
     "maxDeceleration": 30

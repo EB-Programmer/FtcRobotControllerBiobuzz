@@ -1,9 +1,9 @@
 /**
  * Autonomous routes, two classes each, side by side: the route's paths, pasted from the online
  * path visualizer (https://visualizer.pedropathing.com/), and a Route that pairs those paths with
- * what the robot does between them -- for example UpCellPath and UpCellRoute. A Path class holds
- * only the pasted code, so a route can be re-pasted after changing it in the visualizer; anything
- * else about the route goes in its Route class.
+ * what the robot does between them -- for example DownCell4Path and DownCell4Route. A Path class
+ * holds only the pasted code, so a route can be re-pasted after changing it in the visualizer;
+ * anything else about the route goes in its Route class.
  *
  * To add a route:
  * <ol>
@@ -13,7 +13,7 @@
  *   <li>Rename the pasted {@code public class Paths} to match the file name
  *       ({@code public class FarGoalPath}).</li>
  *   <li>Create {@code FarGoalRoute.java} next to it, whose constructor calls
- *       {@code super(new FarGoalPath())} -- see UpCellRoute.</li>
+ *       {@code super(new FarGoalPath())} -- see DownCell4Route.</li>
  *   <li>Add {@code new FarGoalRoute()} to the {@code routes} list at the top of BiobuzzAuton so
  *       it shows up in the init menu.</li>
  * </ol>

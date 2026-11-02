@@ -1,8 +1,8 @@
 package org.firstinspires.ftc.teamcode.routes;
 
-public class DownCellRoute extends Route {
-    public DownCellRoute() {
-        super(new DownCellPath());
+public class DownCell4Route extends Route {
+    public DownCell4Route() {
+        super(new DownCell4Path());
     }
 
     @Override

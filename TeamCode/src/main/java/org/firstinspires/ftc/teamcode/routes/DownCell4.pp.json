@@ -1,7 +1,9 @@
 {
+  "version": "2.0.0",
+  "timestamp": "2026-11-02T22:06:19.097Z",
   "startPoint": {
-    "x": 60,
-    "y": 135.5,
+    "x": 60.2,
+    "y": 132.5,
     "locked": false,
     "headingDeg": 90
   },
@@ -17,8 +19,8 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 59.25,
-        "y": 108
+        "x": 58,
+        "y": 107.5
       },
       "controlPoints": [],
       "heading": {
@@ -38,15 +40,15 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 10,
-        "y": 122
+        "x": 13,
+        "y": 121
       },
       "controlPoints": [],
       "heading": {
         "type": "linear",
         "reverse": true,
         "startDeg": 270,
-        "endDeg": 90
+        "endDeg": 270
       }
     }
   ],
@@ -119,6 +121,16 @@
     }
   ],
   "fieldPoints": [],
-  "version": "1.5.0",
-  "timestamp": "2026-10-26T02:46:58.485Z"
+  "robot": {
+    "forwardVelocity": 75,
+    "strafeVelocity": 65,
+    "aVelocity": 3.141592653589793,
+    "kFriction": 0.1,
+    "rLength": 18,
+    "rWidth": 18,
+    "safetyMargin": 1,
+    "maxAcceleration": 30,
+    "maxDeceleration": 30
+  },
+  "activePaths": []
 }
