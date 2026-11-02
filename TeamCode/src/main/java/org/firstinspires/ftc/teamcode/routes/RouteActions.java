@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
 
 /**
  * What a Route can do between paths. Every helper runs the auton's hold loop while it waits, so
@@ -21,21 +22,31 @@ public class RouteActions {
         void run(String activity);
     }
 
+    // A heading this close to the one being held counts as there, even while still turning
+    private static final double HEADING_CLOSE_DEG = 2.0;
+    // Holding position turns the robot gently, so it can stop short of the heading: this close
+    // also counts, once it has stopped turning
+    private static final double HEADING_NEAR_DEG = 5.0;
+
     private final BooleanSupplier isActive;
     private final HoldLoop holdLoop;
+    private final DoubleSupplier holdHeadingErrorDeg;
     private final ElapsedTime autonTimer;
     private final Intake intake;
     private final HiveAim hiveAim;
     private final List<String> notes = new ArrayList<>();
 
     /**
+     * holdHeadingErrorDeg is how many degrees the robot's heading is from the one it's holding;
      * autonTimer is the auton's clock, started when the route starts; hiveAim must be updated by
      * the hold loop, so it reflects what the camera sees while actions wait.
      */
-    public RouteActions(BooleanSupplier isActive, HoldLoop holdLoop, ElapsedTime autonTimer,
+    public RouteActions(BooleanSupplier isActive, HoldLoop holdLoop,
+                        DoubleSupplier holdHeadingErrorDeg, ElapsedTime autonTimer,
                         Intake intake, HiveAim hiveAim) {
         this.isActive = isActive;
         this.holdLoop = holdLoop;
+        this.holdHeadingErrorDeg = holdHeadingErrorDeg;
         this.autonTimer = autonTimer;
         this.intake = intake;
         this.hiveAim = hiveAim;
@@ -65,6 +76,28 @@ public class RouteActions {
         while (isActive.getAsBoolean() && timer.milliseconds() < milliseconds) {
             holdLoop.run(activity);
         }
+    }
+
+    /**
+     * Holds position until the robot has turned to the heading of the path it just finished. A
+     * path can end with its turn unfinished, since Pedro Pathing ends it by position plus a short
+     * timeout, so this is for a path that turns a lot over a short distance. Gives up after
+     * timeoutMillis. Returns whether the heading got there; giving up is noted in the end-of-run
+     * summary, along with how far off it was.
+     */
+    public boolean waitForHeadingMillis(long timeoutMillis) {
+        boolean reached = runUntil("wait for heading", this::isHeadingReached, timeoutMillis);
+        if (!reached) {
+            notes.add(String.format(Locale.US, "%.1f° off",
+                    Math.abs(holdHeadingErrorDeg.getAsDouble())));
+        }
+        return reached;
+    }
+
+    private boolean isHeadingReached() {
+        double errorDeg = Math.abs(holdHeadingErrorDeg.getAsDouble());
+        return errorDeg < HEADING_CLOSE_DEG
+                || (errorDeg < HEADING_NEAR_DEG && hiveAim.isTurnStopped());
     }
 
     /**

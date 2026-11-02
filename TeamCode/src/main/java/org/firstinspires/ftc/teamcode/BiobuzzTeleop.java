@@ -51,9 +51,10 @@ import java.util.List;
  * After EB Auton, odometry picks up from where the auton left the robot, so poses are in field
  * coordinates; otherwise it starts at x 0, y 0, heading 0 wherever the robot is.
  *
- * The shooter, the intake, and the Limelight are optional hardware: without a "shooter" or
- * "intake" motor or a "limelight" configured, everything else still works and that hardware's
- * controls do nothing.
+ * The shooter, the intake, the Limelight, and the indicator lights are optional hardware: without
+ * a "shooter" or "intake" motor, a "limelight", or "ledIndicator0" and "ledIndicator1" configured,
+ * everything else still works and that hardware's controls do nothing. The lights are green while
+ * tags aiming can use are in view, otherwise off.
  */
 
 @TeleOp(name = "EB Teleop", group = "EBBiobuzz")
@@ -97,7 +98,7 @@ public class BiobuzzTeleop extends LinearOpMode {
             toggleAlliance();
             logLevel.update(gamepad1, gamepad2);
             follower.update();  // keeps odometry current, for remembering where the HIVE is
-            hiveAim.update(redAlliance, false);
+            hardware.updateHiveAim(redAlliance, false);
             hardware.addInitTelemetry(telemetry);
             addPoseTelemetry();
             addAimTelemetry();
@@ -106,7 +107,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         }
         telemetry.setDisplayFormat(Telemetry.DisplayFormat.CLASSIC);
         if (isStopRequested()) {
-            hiveAim.stop();
+            hardware.stop();
             return;
         }
 
@@ -120,14 +121,14 @@ public class BiobuzzTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             toggleAlliance();
             logLevel.update(gamepad1, gamepad2);
-            hiveAim.update(redAlliance, gamepad1.y);
+            hardware.updateHiveAim(redAlliance, gamepad1.y);
             drive();
             shoot();
             runIntake();
             updateTelemetry();
         }
 
-        hiveAim.stop();
+        hardware.stop();
     }
 
     private void initHardware() {

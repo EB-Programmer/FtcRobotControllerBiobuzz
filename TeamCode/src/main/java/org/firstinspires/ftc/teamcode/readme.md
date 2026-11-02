@@ -21,7 +21,7 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
   they can be re-pasted after a change in the visualizer; and its `Route` (e.g. `DownCell4Route`),
   pairing those paths with what the robot does at the start and after each path, using the helpers
   in `RouteActions`.
-- `subsystems/` -- robot mechanisms: `Shooter`, `Intake`, and `HiveAim` (Limelight auto-aim) with its helpers
+- `subsystems/` -- robot mechanisms: `Shooter`, `Intake`, `IndicatorLights`, and `HiveAim` (Limelight auto-aim) with its helpers
   `TagCorners`, `TagTilt`, `TagCluster`, `HiveMemory`, `LimelightMount`, and `TagDebugTelemetry`;
   plus `RobotHardware`, which sets them all up the same way for both OpModes and reports what it
   found on the init screen.
@@ -42,6 +42,7 @@ Robot code for BIOBUZZ. Driving and autonomous paths use [Pedro Pathing](https:/
 | `limelight` | Limelight 3A | no -- teleop auto-aim is disabled and route `waitForCellReady()` calls are skipped without it |
 | `shooter` | shooter motor | no -- teleop shooter controls are disabled without it |
 | `intake` | intake motor | no -- intake controls and route intake actions do nothing without it |
+| `ledIndicator0`, `ledIndicator1` | RGB indicator lights, configured as servos | no -- each is green while tags aiming can use are in view, otherwise off; a missing one is skipped |
 
 ## Limelight pipeline settings
 
@@ -63,7 +64,8 @@ list at the top of `BiobuzzAuton`.
 
 ## Constants worth knowing about
 
-- `BiobuzzAuton.MAX_POWER` -- top drive power while following auton paths.
+- `BiobuzzAuton.DRIVE_POWERS` -- the init menu's choices for top drive power while following auton
+  paths; the first is the default.
 - `HiveAim` -- auto-aim tuning: `KP`, `MIN_TURN`, `MAX_TURN`, `TOLERANCE_DEG`, and the Limelight
   pipeline slot.
 - `LimelightMount` -- where the camera is mounted (forward/left offset and upward tilt).

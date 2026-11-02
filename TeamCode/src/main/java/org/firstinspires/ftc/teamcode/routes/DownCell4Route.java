@@ -8,7 +8,7 @@ public class DownCell4Route extends Route {
     @Override
     public void afterPath(int pathNumber, RouteActions robot) {
         if (pathNumber == 1) {
-            robot.waitForCellReady(27);
+            robot.waitForCellReady(26);
         }
     }
 }

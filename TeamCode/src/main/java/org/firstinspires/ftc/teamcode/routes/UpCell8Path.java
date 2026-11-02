@@ -14,10 +14,10 @@ public class UpCell8Path {
     private final Pose start = poseFactory.of(58.7, 9, 90);
     private final Pose path1 = poseFactory.of(58, 34, 90);
     private final Pose point2Start = poseFactory.of(58, 34, 90);
-    private final Pose point2 = poseFactory.of(30, 9, 180);
-    private final Pose point3Start = poseFactory.of(30, 9, 180);
-    private final Pose point3 = poseFactory.of(9, 9, 180);
-    private final Pose point4Start = poseFactory.of(9, 9, 180);
+    private final Pose point2 = poseFactory.of(30, 9.2, 180);
+    private final Pose point3Start = poseFactory.of(30, 9.2, 180);
+    private final Pose point3 = poseFactory.of(9.2, 9.2, 180);
+    private final Pose point4Start = poseFactory.of(9.2, 9.2, 180);
     private final Pose point4 = poseFactory.of(58, 34, 90);
     private final Pose point5Start = poseFactory.of(58, 34, 90);
     private final Pose point5 = poseFactory.of(60, 42, 270);

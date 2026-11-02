@@ -41,7 +41,7 @@
       "kind": "atomic",
       "endPoint": {
         "x": 30,
-        "y": 9
+        "y": 9.2
       },
       "controlPoints": [],
       "heading": {
@@ -77,8 +77,8 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 9,
-        "y": 9
+        "x": 9.2,
+        "y": 9.2
       },
       "controlPoints": [],
       "heading": {

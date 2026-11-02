@@ -9,8 +9,9 @@ import org.firstinspires.ftc.teamcode.util.Utils;
 
 /**
  * The robot's hardware, set up the same way for every match OpMode, along with the telemetry that
- * reports during init what was found. The shooter, intake, and Limelight are optional, so a missing
- * one doesn't stop an OpMode from starting; the init telemetry is how the driver finds out.
+ * reports during init what was found. The shooter, intake, Limelight, and indicator lights are
+ * optional, so a missing one doesn't stop an OpMode from starting; the init telemetry is how the
+ * driver finds out.
  */
 public class RobotHardware {
     public final Follower follower;
@@ -18,6 +19,7 @@ public class RobotHardware {
     public final Shooter shooter;
     public final Intake intake;
     public final HiveAim hiveAim;
+    public final IndicatorLights lights;
 
     /**
      * Sets up all the hardware and starts the Limelight, so it's already sending results at Start
@@ -31,6 +33,22 @@ public class RobotHardware {
         intake = new Intake(hardwareMap);
         hiveAim = new HiveAim(hardwareMap, follower, poseOnField);
         hiveAim.start();
+        lights = new IndicatorLights(hardwareMap);
+    }
+
+    /**
+     * Updates hiveAim (see HiveAim.update()) and shows on the lights whether it has tags in view.
+     * Call once per loop, in a loop that also calls follower.update().
+     */
+    public void updateHiveAim(boolean redAlliance, boolean aimHeld) {
+        hiveAim.update(redAlliance, aimHeld);
+        lights.showTagsInView(hiveAim.hasTarget());
+    }
+
+    /** Stops the Limelight and turns the lights off; call as the OpMode ends. */
+    public void stop() {
+        hiveAim.stop();
+        lights.off();
     }
 
     /**
@@ -45,5 +63,6 @@ public class RobotHardware {
                 ? "found" : "not found -- intake won't run");
         telemetry.addData(Utils.column("Limelight"), hiveAim.hasCamera()
                 ? "found" : "not found -- no camera aiming or CELL-ready wait");
+        telemetry.addData(Utils.column("Lights"), lights.describeFound());
     }
 }

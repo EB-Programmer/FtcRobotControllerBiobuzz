@@ -152,7 +152,7 @@ public class HiveAim {
             reachedExpectedHeading = false;
         } else if (expected != null
                 && Math.abs(headingErrorTo(follower.getPose(), expected)) < TOLERANCE_DEG
-                && isStopped()) {
+                && isTurnStopped()) {
             reachedExpectedHeading = true;
         }
     }
@@ -299,13 +299,13 @@ public class HiveAim {
             return 0;
         }
         boolean onTarget = Math.abs(errorDeg) < TOLERANCE_DEG;
-        if (onTarget && isStopped()) {
+        if (onTarget && isTurnStopped()) {
             return 0;
         }
         // Pushes toward the target harder the farther off it is, and against the turning harder
         // the faster it's turning -- like a shock absorber
         double power = KP * errorDeg - KD * turnRateDeg();
-        if (!onTarget && isStopped()) {
+        if (!onTarget && isTurnStopped()) {
             power = Math.signum(errorDeg) * Math.max(Math.abs(power), MIN_TURN);
         }
         return Math.max(-MAX_TURN, Math.min(MAX_TURN, power));
@@ -346,7 +346,11 @@ public class HiveAim {
         return pinpoint == null ? 0 : pinpoint.getHeadingVelocity(UnnormalizedAngleUnit.DEGREES);
     }
 
-    private boolean isStopped() {
+    /**
+     * Whether the robot has stopped turning, as of the last follower.update(). Always true without
+     * a Pinpoint, which is what the turn rate comes from.
+     */
+    public boolean isTurnStopped() {
         return Math.abs(turnRateDeg()) < STOPPED_TURN_RATE_DEG;
     }
 
