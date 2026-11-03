@@ -12,21 +12,25 @@ public class UpCell8Path {
     private final PoseFactory poseFactory = PoseFactory.degrees();
 
     private final Pose start = poseFactory.of(58.7, 9, 90);
-    private final Pose path1 = poseFactory.of(58, 34, 90);
-    private final Pose point2Start = poseFactory.of(58, 34, 90);
-    private final Pose point2 = poseFactory.of(30, 9.2, 180);
-    private final Pose point3Start = poseFactory.of(30, 9.2, 180);
-    private final Pose point3 = poseFactory.of(9.2, 9.2, 180);
-    private final Pose point4Start = poseFactory.of(9.2, 9.2, 180);
-    private final Pose point4 = poseFactory.of(58, 34, 90);
-    private final Pose point5Start = poseFactory.of(58, 34, 90);
-    private final Pose point5 = poseFactory.of(60, 42, 270);
-    private final Pose point6Start = poseFactory.of(60, 42, 270);
-    private final Pose point6 = poseFactory.of(59, 107.5, 270);
-    private final Pose point7Start = poseFactory.of(59, 107.5, 270);
-    private final Pose point7 = poseFactory.of(38, 105, 270);
-    private final Pose point8Start = poseFactory.of(38, 105, 270);
-    private final Pose point8 = poseFactory.of(13, 92, 270);
+    private final Pose path1 = poseFactory.of(58, 20, 90);
+    private final Pose point2Start = poseFactory.of(58, 20, 90);
+    private final Pose point2 = poseFactory.of(30, 9.5, 180);
+    private final Pose point3Start = poseFactory.of(30, 9.5, 180);
+    private final Pose point3 = poseFactory.of(10.5, 9.5, 180);
+    private final Pose point4Start = poseFactory.of(10.5, 9.5, 180);
+    private final Pose point4 = poseFactory.of(12, 9.5, 180);
+    private final Pose point5Start = poseFactory.of(12, 9.5, 180);
+    private final Pose point5 = poseFactory.of(58, 20, 90);
+    private final Pose point6Start = poseFactory.of(58, 20, 90);
+    private final Pose point6 = poseFactory.of(60, 42, 270);
+    private final Pose point7Start = poseFactory.of(60, 42, 270);
+    private final Pose point7 = poseFactory.of(59, 121.5, 270);
+    private final Pose point8Start = poseFactory.of(59, 121.5, 270);
+    private final Pose point8 = poseFactory.of(52, 115, 225);
+    private final Pose point9Start = poseFactory.of(52, 115, 225);
+    private final Pose point9 = poseFactory.of(31, 92, 225);
+    private final Pose point10Start = poseFactory.of(31, 92, 225);
+    private final Pose point10 = poseFactory.of(13, 92, 180);
 
     public Path path1() {
         return Paths.line(start, path1).linear(start, path1);
@@ -58,5 +62,13 @@ public class UpCell8Path {
 
     public Path path8() {
         return Paths.line(point8Start, point8).linear(point8Start, point8);
+    }
+
+    public Path path9() {
+        return Paths.line(point9Start, point9).linear(point9Start, point9);
+    }
+
+    public Path path10() {
+        return Paths.line(point10Start, point10).linear(point10Start, point10);
     }
 }
