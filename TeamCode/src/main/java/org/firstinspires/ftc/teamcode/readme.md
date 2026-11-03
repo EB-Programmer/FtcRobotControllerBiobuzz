@@ -66,7 +66,7 @@ list at the top of `BiobuzzAuton`.
 
 - `BiobuzzAuton.DRIVE_POWERS` -- the init menu's choices for top drive power while following auton
   paths; the first is the default.
-- `HiveAim` -- auto-aim tuning: `KP`, `MIN_TURN`, `MAX_TURN`, `TOLERANCE_DEG`, and the Limelight
-  pipeline slot.
+- `HiveAim` -- auto-aim tuning: `KP`, `KD`, `MIN_TURN`, `MAX_TURN`, `TOLERANCE_DEG`,
+  `SETTLED_TOLERANCE_DEG`, `TARGET_SMOOTHING`, `TARGET_SNAP_DEG`, and the Limelight pipeline slot.
 - `LimelightMount` -- where the camera is mounted (forward/left offset and upward tilt).
 - `TagCluster.OFFSETS_IN` -- AprilTag spacing within a cluster, in ID order as seen with the CELL up.

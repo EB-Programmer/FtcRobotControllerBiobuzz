@@ -39,6 +39,10 @@ import java.util.Locale;
  * milliseconds old by the time it arrives, and steering straight off it would keep the robot
  * turning after it got there, swinging back and forth past the target.
  *
+ * Two things keep camera noise from jittering the robot once it's on target: the heading that
+ * faces the tags is smoothed from frame to frame, and after stopping on it the robot stays put
+ * until it's more than SETTLED_TOLERANCE_DEG off.
+ *
  * It also tracks whether the up CELL has stopped moving, for an auton waiting on a HIVE TIP --
  * see CellReadiness and isCellReady().
  *
@@ -63,6 +67,16 @@ public class HiveAim {
     // and forth; tune on the robot.
     private static final double MIN_TURN = 0.06;
     private static final double TOLERANCE_DEG = 1.0;
+    // Once stopped within TOLERANCE_DEG of the tags, how far off the robot can get before it turns
+    // again. Raise it if the robot still jitters on target; lower it if shots land too far off.
+    private static final double SETTLED_TOLERANCE_DEG = 2.5;
+    // How much each new frame moves the heading that faces the tags (0-1); lower smooths more,
+    // but lags more behind the tags while the robot drives. Turning doesn't add any lag, since
+    // this heading stays the same as the robot turns.
+    private static final double TARGET_SMOOTHING = 0.2;
+    // A frame this far from the smoothed heading is taken straight away, as when a different CELL
+    // comes up after a HIVE TIP
+    private static final double TARGET_SNAP_DEG = 5.0;
     // Turning slower than this counts as stopped
     private static final double STOPPED_TURN_RATE_DEG = 5.0;  // degrees per second
     private static final long MAX_RESULT_STALENESS = 100;  // milliseconds
@@ -96,6 +110,7 @@ public class HiveAim {
     private Boolean memoryRedAlliance = null;
     private boolean aimHeld = false;
     private boolean reachedExpectedHeading = false;
+    private boolean settledOnTags = false;
 
     /**
      * poseOnField is whether the follower's pose is in field coordinates, so the field map can be
@@ -155,6 +170,16 @@ public class HiveAim {
                 && isTurnStopped()) {
             reachedExpectedHeading = true;
         }
+
+        // Latched, so camera noise around TOLERANCE_DEG doesn't keep restarting the turn
+        if (!aimHeld || !hasTarget()) {
+            settledOnTags = false;
+        } else {
+            double errorDeg = Math.abs(headingErrorDeg());
+            settledOnTags = settledOnTags
+                    ? errorDeg <= SETTLED_TOLERANCE_DEG
+                    : errorDeg < TOLERANCE_DEG && isTurnStopped();
+        }
     }
 
     private void readCamera(boolean redAlliance) {
@@ -181,6 +206,7 @@ public class HiveAim {
 
         // Only one of our alliance's two CELLS is up at a time, so once the upside-down and flat
         // tags -- on the CELL that's down -- are set aside, every tag left is on the up CELL
+        boolean hadTarget = hasTarget();
         aimTags.clear();
         upsideDownTags.clear();
         flatTags.clear();
@@ -221,12 +247,26 @@ public class HiveAim {
         // The frame shows the tags as they were when it was captured, so the heading that faces
         // them is worked out from where the robot was facing then
         Pose facing = robotAtCapture != null ? robotAtCapture : follower.getPose();
-        cameraTargetHeading = facing.getHeading() + Math.toRadians(aimErrorDeg);
+        cameraTargetHeading = smoothedTargetHeading(
+                facing.getHeading() + Math.toRadians(aimErrorDeg), hadTarget);
 
         boolean turningSlowly = Math.abs(turnRateDeg()) < MAX_MEMORY_UPDATE_TURN_RATE_DEG;
         if (middle != null && robotAtCapture != null && turningSlowly) {
             memory.remember(LimelightMount.fieldPosition(middle, robotAtCapture));
         }
+    }
+
+    /**
+     * The heading to aim at given this frame's heading in radians, blended into the smoothed one
+     * unless there's nothing to blend with (hadTarget is whether the last frame had tags) or the
+     * two are too far apart.
+     */
+    private double smoothedTargetHeading(double frameHeading, boolean hadTarget) {
+        double differenceDeg = wrapDeg(Math.toDegrees(frameHeading - cameraTargetHeading));
+        if (!hadTarget || Math.abs(differenceDeg) > TARGET_SNAP_DEG) {
+            return frameHeading;
+        }
+        return cameraTargetHeading + TARGET_SMOOTHING * Math.toRadians(differenceDeg);
     }
 
     /**
@@ -291,11 +331,11 @@ public class HiveAim {
     /**
      * Turn power that points the robot at the HIVE, in Pedro Pathing's convention (positive turns
      * counterclockwise): toward the tags when they're in view, otherwise toward expectedTarget().
-     * 0 with nothing to aim at, or once stopped within tolerance.
+     * 0 with nothing to aim at, or once stopped within tolerance, or while settled on the tags.
      */
     public double getTurn() {
         double errorDeg = headingErrorDeg();
-        if (Double.isNaN(errorDeg)) {
+        if (Double.isNaN(errorDeg) || settledOnTags) {
             return 0;
         }
         boolean onTarget = Math.abs(errorDeg) < TOLERANCE_DEG;
@@ -358,7 +398,8 @@ public class HiveAim {
     public String describeStatus() {
         if (hasTarget()) {
             double aimErrorDeg = headingErrorDeg();
-            String state = Math.abs(aimErrorDeg) < TOLERANCE_DEG ? "LOCKED (camera)"
+            String state = Math.abs(aimErrorDeg) < TOLERANCE_DEG || settledOnTags
+                    ? "LOCKED (camera)"
                     : aimHeld ? "TURNING to tags (camera)"
                     : "tags in view (camera)";
             return String.format(Locale.US, "%s, %d tags, %.1f° %s%s",
