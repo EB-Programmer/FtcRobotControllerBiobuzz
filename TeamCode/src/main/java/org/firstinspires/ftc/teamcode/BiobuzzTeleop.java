@@ -36,7 +36,7 @@ import java.util.List;
  *   Left Bumper:    Reverse intake (press to turn on or off)
  *   Right Bumper:   Intake (press to turn on or off)
  *   Right Trigger:  Shoot (hold)
- *   Dpad Up/Down:   Increase / decrease intake power
+ *   Dpad Up/Down:   Increase / decrease shooter power
  *   A:
  *   B:
  *   Y:
@@ -62,11 +62,9 @@ public class BiobuzzTeleop extends LinearOpMode {
     private static final double DRIVE_HIGH_POWER = 1.0;
     private static final double DRIVE_LOW_POWER = 0.4;
 
-    private static final double SHOOTER_POWER = 0.5;
-
     // Static so a value tuned with the d-pad carries over to the next run, until the robot
     // app restarts
-    private static double intakePower = Intake.DEFAULT_POWER;
+    private static double shooterPower = 0.5;
 
     private RobotHardware hardware;
     private Follower follower;
@@ -214,27 +212,28 @@ public class BiobuzzTeleop extends LinearOpMode {
         follower.update();
     }
 
+    /** The right trigger runs the shooter while held; the d-pad tunes how hard it runs. */
     private void shoot() {
+        boolean powerUpPressed = gamepad2.dpadUpWasPressed();
+        boolean powerDownPressed = gamepad2.dpadDownWasPressed();
         if (!shooter.isPresent()) {
             return;
         }
-        shooter.setPower(gamepad2.right_trigger > 0.25 ? SHOOTER_POWER : 0);
+        shooterPower = Utils.tuneConstant(
+                shooterPower, powerUpPressed, powerDownPressed, 0.05, 1.0);
+        shooter.setPower(gamepad2.right_trigger > 0.25 ? shooterPower : 0);
     }
 
     /**
      * Each bumper turns its direction on with one press and off with the next; pressing one while
-     * the other direction is running switches straight over. The d-pad tunes how hard it runs.
+     * the other direction is running switches straight over.
      */
     private void runIntake() {
         boolean forwardPressed = gamepad2.rightBumperWasPressed();
         boolean reversePressed = gamepad2.leftBumperWasPressed();
-        boolean powerUpPressed = gamepad2.dpadUpWasPressed();
-        boolean powerDownPressed = gamepad2.dpadDownWasPressed();
         if (!intake.isPresent()) {
             return;
         }
-        intakePower = Utils.tuneConstant(intakePower, powerUpPressed, powerDownPressed, 0.05, 1.0);
-        intake.setPower(intakePower);
         Intake.State state = intake.getState();
         if (forwardPressed) {
             intake.set(state == Intake.State.FORWARD ? Intake.State.OFF : Intake.State.FORWARD);
@@ -265,12 +264,11 @@ public class BiobuzzTeleop extends LinearOpMode {
 
     private void updateTelemetry() {
         telemetry.addData("Fast Drive Mode", fastDriveMode);
-        if (intake.isPresent()) {
-            telemetry.addData("Intake Power", intakePower);
-        } else {
+        if (!intake.isPresent()) {
             telemetry.addData("Intake", "not found -- intake controls disabled");
         }
         if (shooter.isPresent()) {
+            telemetry.addData("Shooter Power", shooterPower);
             telemetry.addData("Shooter RPM", "%.0f", shooter.getRpm());
         } else {
             telemetry.addData("Shooter", "not found -- shooter controls disabled");

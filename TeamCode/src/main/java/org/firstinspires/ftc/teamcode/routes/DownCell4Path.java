@@ -12,8 +12,8 @@ public class DownCell4Path {
     private final PoseFactory poseFactory = PoseFactory.degrees();
 
     private final Pose start = poseFactory.of(60.2, 132.5, 270);
-    private final Pose path1 = poseFactory.of(58, 107.5, 270);
-    private final Pose point2Start = poseFactory.of(58, 107.5, 270);
+    private final Pose path1 = poseFactory.of(58, 121.5, 270);
+    private final Pose point2Start = poseFactory.of(58, 121.5, 270);
     private final Pose point2 = poseFactory.of(13, 121, 270);
 
     public Path path1() {
