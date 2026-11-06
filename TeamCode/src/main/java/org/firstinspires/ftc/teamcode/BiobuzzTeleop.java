@@ -55,10 +55,18 @@ import java.util.List;
  * After EB Auton, odometry picks up from where the auton left the robot, so poses are in field
  * coordinates; otherwise it starts at x 0, y 0, heading 0 wherever the robot is.
  *
- * The shooter, the intake, the Limelight, and the indicator lights are optional hardware: without
- * a "shooter" or "intake" motor, a "limelight", or "ledIndicator0" and "ledIndicator1" configured,
- * everything else still works and that hardware's controls do nothing. The lights are green while
- * tags aiming can use are in view, otherwise off.
+ * Hardware names expected in the robot configuration:
+ *   Required:
+ *     leftFrontDrive, rightFrontDrive,
+ *     leftRearDrive, rightRearDrive    Drive motors
+ *     pinpoint                         goBILDA Pinpoint odometry computer
+ *   Optional:
+ *     shooter                          Shooter motor
+ *     shooterGate1, shooterGate2       Shooter gate servos
+ *     intake                           Intake motor
+ *     limelight                        Limelight 3A camera
+ *     ledIndicator0, ledIndicator1     Indicator lights, configured as servos
+ *
  */
 
 @TeleOp(name = "EB Teleop", group = "EBBiobuzz")
@@ -225,7 +233,7 @@ public class BiobuzzTeleop extends LinearOpMode {
             return;
         }
         shooterRpm = Utils.tuneConstant(
-                shooterRpm, speedUpPressed, speedDownPressed, 100, Shooter.MAX_RPM);
+                shooterRpm, speedUpPressed, speedDownPressed, 100, 2*Shooter.MAX_RPM);
         shooter.setRpm(gamepad2.right_trigger > 0.25 ? shooterRpm : 0);
     }
 

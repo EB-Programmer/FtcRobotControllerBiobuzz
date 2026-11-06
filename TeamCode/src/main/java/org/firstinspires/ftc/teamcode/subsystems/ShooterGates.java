@@ -9,9 +9,12 @@ import com.qualcomm.robotcore.hardware.Servo;
  * hardware: either one, or both, can be left unconfigured, and the rest still work.
  */
 public class ShooterGates {
-    // Servo positions, 0 to 1. Each gate has its own pair, since two servos mounted as mirror
-    // images usually need different positions. NaN means not measured yet: a gate doesn't move
-    // its servo toward a NaN position, so an unmeasured value can't drive a gate into the frame.
+    // Servo positions, 0 to 1. The servos are goBILDA 2000 Series Dual Mode Super Speed servos in
+    // servo mode, which travel 300° over a 500-2500 µs pulse; the SDK's default range of
+    // 600-2400 µs makes 0 to 1 cover about 270°, about 2.7° per 0.01. Each gate has its own
+    // pair, since two servos mounted as mirror images usually need different positions. NaN means
+    // not measured yet: a gate doesn't move its servo toward a NaN position, so an unmeasured
+    // value can't drive a gate into the frame.
     private static final double GATE1_CLOSED = Double.NaN;
     private static final double GATE1_OPEN = Double.NaN;
     private static final double GATE2_CLOSED = Double.NaN;
