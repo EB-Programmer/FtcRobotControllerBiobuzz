@@ -11,6 +11,7 @@ import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.RobotHardware;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterGates;
 import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.LogLevel;
 import org.firstinspires.ftc.teamcode.util.MatchSettings;
@@ -36,7 +37,10 @@ import java.util.List;
  *   Left Bumper:    Reverse intake (press to turn on or off)
  *   Right Bumper:   Intake (press to turn on or off)
  *   Right Trigger:  Shoot (hold)
- *   Dpad Up/Down:   Increase / decrease shooter power
+ *   Dpad Up/Down:   Increase / decrease shooter speed, 100 RPM a press
+ *   Dpad Right/Left: Increase / decrease gate 1's position, for finding the values to put in
+ *                   ShooterGates. The first press moves it to the middle (0.5) if the position
+ *                   isn't set yet. Ignored while X is held (X + d-pad sets the telemetry level)
  *   A:
  *   B:
  *   Y:
@@ -64,7 +68,7 @@ public class BiobuzzTeleop extends LinearOpMode {
 
     // Static so a value tuned with the d-pad carries over to the next run, until the robot
     // app restarts
-    private static double shooterPower = 0.5;
+    private static double shooterRpm = 3000;
 
     private RobotHardware hardware;
     private Follower follower;
@@ -122,6 +126,7 @@ public class BiobuzzTeleop extends LinearOpMode {
             hardware.updateHiveAim(redAlliance, gamepad1.y);
             drive();
             shoot();
+            tuneGate();
             runIntake();
             updateTelemetry();
         }
@@ -212,16 +217,33 @@ public class BiobuzzTeleop extends LinearOpMode {
         follower.update();
     }
 
-    /** The right trigger runs the shooter while held; the d-pad tunes how hard it runs. */
+    /** The right trigger runs the shooter while held; the d-pad tunes how fast it runs. */
     private void shoot() {
-        boolean powerUpPressed = gamepad2.dpadUpWasPressed();
-        boolean powerDownPressed = gamepad2.dpadDownWasPressed();
+        boolean speedUpPressed = gamepad2.dpadUpWasPressed();
+        boolean speedDownPressed = gamepad2.dpadDownWasPressed();
         if (!shooter.isPresent()) {
             return;
         }
-        shooterPower = Utils.tuneConstant(
-                shooterPower, powerUpPressed, powerDownPressed, 0.05, 1.0);
-        shooter.setPower(gamepad2.right_trigger > 0.25 ? shooterPower : 0);
+        shooterRpm = Utils.tuneConstant(
+                shooterRpm, speedUpPressed, speedDownPressed, 100, Shooter.MAX_RPM);
+        shooter.setRpm(gamepad2.right_trigger > 0.25 ? shooterRpm : 0);
+    }
+
+    /**
+     * The d-pad's right and left nudge gate 1's position, for the state it's in. Skipped while X
+     * is held, since X + d-pad left/right sets the telemetry level.
+     */
+    private void tuneGate() {
+        boolean upPressed = gamepad2.dpadRightWasPressed();
+        boolean downPressed = gamepad2.dpadLeftWasPressed();
+        ShooterGates.Gate gate = hardware.gates.gate1;
+        if (!gate.isPresent() || gamepad2.x || !(upPressed || downPressed)) {
+            return;
+        }
+        double position = gate.getPosition();
+        gate.setPosition(Double.isNaN(position)
+                ? 0.5
+                : Utils.tuneConstant(position, upPressed, downPressed, 0.01, 1.0));
     }
 
     /**
@@ -268,10 +290,19 @@ public class BiobuzzTeleop extends LinearOpMode {
             telemetry.addData("Intake", "not found -- intake controls disabled");
         }
         if (shooter.isPresent()) {
-            telemetry.addData("Shooter Power", shooterPower);
+            telemetry.addData("Shooter Target RPM", "%.0f", shooterRpm);
             telemetry.addData("Shooter RPM", "%.0f", shooter.getRpm());
         } else {
             telemetry.addData("Shooter", "not found -- shooter controls disabled");
+        }
+        ShooterGates.Gate gate1 = hardware.gates.gate1;
+        if (gate1.isPresent()) {
+            double position = gate1.getPosition();
+            telemetry.addData("Gate 1 Position", Double.isNaN(position)
+                    ? "not set (d-pad right/left to move)"
+                    : String.format("%.2f (%s)", position, gate1.isOpen() ? "open" : "closed"));
+        } else {
+            telemetry.addData("Gate 1", "not found -- gate tuning disabled");
         }
         addPoseTelemetry();
         addAimTelemetry();

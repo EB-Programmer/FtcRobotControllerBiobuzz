@@ -9,14 +9,15 @@ import org.firstinspires.ftc.teamcode.util.Utils;
 
 /**
  * The robot's hardware, set up the same way for every match OpMode, along with the telemetry that
- * reports during init what was found. The shooter, intake, Limelight, and indicator lights are
- * optional, so a missing one doesn't stop an OpMode from starting; the init telemetry is how the
- * driver finds out.
+ * reports during init what was found. The shooter, shooter gates, intake, Limelight, and indicator
+ * lights are optional, so a missing one doesn't stop an OpMode from starting; the init telemetry
+ * is how the driver finds out.
  */
 public class RobotHardware {
     public final Follower follower;
     public final FollowerTelemetry followerTelemetry;
     public final Shooter shooter;
+    public final ShooterGates gates;
     public final Intake intake;
     public final HiveAim hiveAim;
     public final IndicatorLights lights;
@@ -30,6 +31,7 @@ public class RobotHardware {
         follower = Constants.createFollower(hardwareMap);
         followerTelemetry = new FollowerTelemetry(follower, telemetry);
         shooter = new Shooter(hardwareMap);
+        gates = new ShooterGates(hardwareMap);
         intake = new Intake(hardwareMap);
         hiveAim = new HiveAim(hardwareMap, follower, poseOnField);
         hiveAim.start();
@@ -59,6 +61,7 @@ public class RobotHardware {
         telemetry.addData(Utils.column("Pinpoint"), followerTelemetry.pinpointStatus());
         telemetry.addData(Utils.column("Shooter"), shooter.isPresent()
                 ? "found" : "not found -- shooter won't run");
+        telemetry.addData(Utils.column("Gates"), gates.describeStatus());
         telemetry.addData(Utils.column("Intake"), intake.isPresent()
                 ? "found" : "not found -- intake won't run");
         telemetry.addData(Utils.column("Limelight"), hiveAim.hasCamera()
