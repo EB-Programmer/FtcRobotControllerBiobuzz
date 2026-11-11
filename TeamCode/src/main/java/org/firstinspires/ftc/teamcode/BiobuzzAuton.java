@@ -98,6 +98,7 @@ public class BiobuzzAuton extends LinearOpMode {
 
         List<String> results = runRoute();
         intake.set(Intake.State.OFF);  // a route can leave it running after its last path
+        hardware.shotControl.stop();  // and the shooter, after warmUpShooter()
         // Saved even when Stop cut the route short, so teleop starts from wherever the robot is
         MatchSettings.autonEndPose = follower.getPose();
         telemetry.setDisplayFormat(Telemetry.DisplayFormat.CLASSIC);
@@ -177,7 +178,7 @@ public class BiobuzzAuton extends LinearOpMode {
             return results;
         }
         routeActions = new RouteActions(this::opModeIsActive, this::holdLoop,
-                this::holdHeadingErrorDeg, autonTimer, intake, hiveAim);
+                this::holdHeadingErrorDeg, autonTimer, intake, hiveAim, hardware.shotControl);
 
         Pose startPose = pathSequence.get(0).getPose(0);
         follower.holdPoint(startPose);

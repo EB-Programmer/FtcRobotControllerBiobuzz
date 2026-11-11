@@ -15,8 +15,8 @@ public class ShooterGates {
     // pair, since two servos mounted as mirror images usually need different positions. NaN means
     // not measured yet: a gate doesn't move its servo toward a NaN position, so an unmeasured
     // value can't drive a gate into the frame.
-    private static final double GATE1_CLOSED = Double.NaN;
-    private static final double GATE1_OPEN = Double.NaN;
+    private static final double GATE1_CLOSED = 0.05;
+    private static final double GATE1_OPEN = 0.5;
     private static final double GATE2_CLOSED = Double.NaN;
     private static final double GATE2_OPEN = Double.NaN;
 

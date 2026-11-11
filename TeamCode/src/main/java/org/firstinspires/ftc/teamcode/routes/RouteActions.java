@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.routes;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.subsystems.ShotControl;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +28,12 @@ public class RouteActions {
     // Holding position turns the robot gently, so it can stop short of the heading: this close
     // also counts, once it has stopped turning
     private static final double HEADING_NEAR_DEG = 5.0;
+    // Shooter speed for shoot()
+    private static final double SHOOT_RPM = 6000;
+    // How long shoot() keeps the shooter running once the gate opens
+    private static final long SHOOT_AFTER_OPEN_MILLIS = 3000;
+    // shoot() stops here on the auton clock, wherever it's got to
+    private static final double SHOOT_CUTOFF_SECONDS = 27;
 
     private final BooleanSupplier isActive;
     private final HoldLoop holdLoop;
@@ -34,6 +41,7 @@ public class RouteActions {
     private final ElapsedTime autonTimer;
     private final Intake intake;
     private final HiveAim hiveAim;
+    private final ShotControl shotControl;
     private final List<String> notes = new ArrayList<>();
 
     /**
@@ -43,13 +51,14 @@ public class RouteActions {
      */
     public RouteActions(BooleanSupplier isActive, HoldLoop holdLoop,
                         DoubleSupplier holdHeadingErrorDeg, ElapsedTime autonTimer,
-                        Intake intake, HiveAim hiveAim) {
+                        Intake intake, HiveAim hiveAim, ShotControl shotControl) {
         this.isActive = isActive;
         this.holdLoop = holdLoop;
         this.holdHeadingErrorDeg = holdHeadingErrorDeg;
         this.autonTimer = autonTimer;
         this.intake = intake;
         this.hiveAim = hiveAim;
+        this.shotControl = shotControl;
     }
 
     /**
@@ -68,6 +77,59 @@ public class RouteActions {
 
     public void intakeOff() {
         intake.set(Intake.State.OFF);
+    }
+
+    /**
+     * Starts the shooter spinning up to SHOOT_RPM with the gate closed, and returns right away. It
+     * keeps running through the paths and actions that follow, so a later shoot() can open the
+     * gate as soon as it starts. shoot() stops it when done; otherwise it's stopped when the
+     * route ends.
+     */
+    public void warmUpShooter() {
+        shotControl.warmUp(SHOOT_RPM);
+    }
+
+    /**
+     * Shoots, holding position meanwhile: runs the shooter at SHOOT_RPM, opens gate 1 once it's
+     * up to speed (see ShotControl), keeps the shooter running SHOOT_AFTER_OPEN_MILLIS more, then
+     * stops the shooter and closes the gate. Stops early once the auton clock reaches
+     * SHOOT_CUTOFF_SECONDS, and returns right away if it's already past it. Being cut off, and a
+     * gate opened by ShotControl's spin-up timeout rather than by the shooter's speed, are noted
+     * in the end-of-run summary.
+     */
+    public void shoot() {
+        try {
+            while (canKeepShooting() && !shotControl.isGateOpen()) {
+                shotControl.update(true, SHOOT_RPM);
+                holdLoop.run(String.format(Locale.US, "shoot: spinning up, %.1fs",
+                        shotControl.secondsShooting()));
+            }
+            if (shotControl.isGateOpen()
+                    && shotControl.secondsShooting() >= ShotControl.SPIN_UP_TIMEOUT_SECONDS) {
+                notes.add("gate opened on spin-up timeout, not shooter speed");
+            }
+            ElapsedTime timer = new ElapsedTime();
+            while (canKeepShooting() && timer.milliseconds() < SHOOT_AFTER_OPEN_MILLIS) {
+                shotControl.update(true, SHOOT_RPM);
+                holdLoop.run("shoot: gate open");
+            }
+            if (isActive.getAsBoolean() && timer.milliseconds() < SHOOT_AFTER_OPEN_MILLIS) {
+                notes.add(String.format(Locale.US, "shoot cut off at %.0fs%s",
+                        SHOOT_CUTOFF_SECONDS,
+                        shotControl.isGateOpen() ? "" : " before the gate opened"));
+            }
+        } finally {
+            shotControl.stop();
+        }
+    }
+
+    private boolean canKeepShooting() {
+        return isActive.getAsBoolean() && autonTimer.seconds() < SHOOT_CUTOFF_SECONDS;
+    }
+
+    /** Seconds on the auton clock, which starts when the route starts. */
+    public double autonSeconds() {
+        return autonTimer.seconds();
     }
 
     public void waitMillis(long milliseconds) {

@@ -36,7 +36,9 @@ import java.util.List;
  * Controls for Gamepad 2:
  *   Left Bumper:    Reverse intake (press to turn on or off)
  *   Right Bumper:   Intake (press to turn on or off)
- *   Right Trigger:  Shoot (hold)
+ *   Right Trigger:  Shoot (hold): runs the shooter, and opens gate 1 once the shooter passes
+ *                   2500 RPM or after 5 s held, whichever comes first. The gate stays open
+ *                   until the trigger is released
  *   Dpad Up/Down:   Increase / decrease shooter speed, 100 RPM a press
  *   Dpad Right/Left: Increase / decrease gate 1's position, for finding the values to put in
  *                   ShooterGates. The first press moves it to the middle (0.5) if the position
@@ -76,7 +78,7 @@ public class BiobuzzTeleop extends LinearOpMode {
 
     // Static so a value tuned with the d-pad carries over to the next run, until the robot
     // app restarts
-    private static double shooterRpm = 3000;
+    private static double shooterRpm = 6000;
 
     private RobotHardware hardware;
     private Follower follower;
@@ -225,7 +227,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         follower.update();
     }
 
-    /** The right trigger runs the shooter while held; the d-pad tunes how fast it runs. */
+    /** The right trigger shoots while held (see ShotControl); the d-pad tunes the shooter speed. */
     private void shoot() {
         boolean speedUpPressed = gamepad2.dpadUpWasPressed();
         boolean speedDownPressed = gamepad2.dpadDownWasPressed();
@@ -233,8 +235,8 @@ public class BiobuzzTeleop extends LinearOpMode {
             return;
         }
         shooterRpm = Utils.tuneConstant(
-                shooterRpm, speedUpPressed, speedDownPressed, 100, 2*Shooter.MAX_RPM);
-        shooter.setRpm(gamepad2.right_trigger > 0.25 ? shooterRpm : 0);
+                shooterRpm, speedUpPressed, speedDownPressed, 100, Shooter.MAX_RPM);
+        hardware.shotControl.update(gamepad2.right_trigger > 0.25, shooterRpm);
     }
 
     /**

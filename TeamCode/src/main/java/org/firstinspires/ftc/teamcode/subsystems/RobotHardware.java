@@ -18,6 +18,7 @@ public class RobotHardware {
     public final FollowerTelemetry followerTelemetry;
     public final Shooter shooter;
     public final ShooterGates gates;
+    public final ShotControl shotControl;
     public final Intake intake;
     public final HiveAim hiveAim;
     public final IndicatorLights lights;
@@ -32,6 +33,7 @@ public class RobotHardware {
         followerTelemetry = new FollowerTelemetry(follower, telemetry);
         shooter = new Shooter(hardwareMap);
         gates = new ShooterGates(hardwareMap);
+        shotControl = new ShotControl(shooter, gates.gate1);
         intake = new Intake(hardwareMap);
         hiveAim = new HiveAim(hardwareMap, follower, poseOnField);
         hiveAim.start();
