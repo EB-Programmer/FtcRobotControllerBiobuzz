@@ -12,6 +12,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.RobotHardware;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterGates;
+import org.firstinspires.ftc.teamcode.subsystems.ShooterMount;
 import org.firstinspires.ftc.teamcode.util.FollowerTelemetry;
 import org.firstinspires.ftc.teamcode.util.LogLevel;
 import org.firstinspires.ftc.teamcode.util.MatchSettings;
@@ -26,12 +27,16 @@ import java.util.List;
  *                   up drives away from the driver, left drives to the driver's left
  *   Left Trigger:   Turn counterclockwise
  *   Right Trigger:  Turn clockwise
- *   X + Left Trigger: Toggle driver's view drive (hold X, then pull the trigger). The triggers
- *                   don't turn while X is held. Needs the pose from EB Auton to know which way
- *                   is away from the driver; otherwise "away" is the way the robot faced at START
+ *   Start + Left Trigger: Toggle driver's view drive (hold Start, then pull the trigger). The
+ *                   triggers don't turn while Start is held. Needs the pose from EB Auton to know
+ *                   which way is away from the driver; otherwise "away" is the way the robot
+ *                   faced at START
  *   A:              Fast Drive Mode
  *   B:              Slow Drive Mode
- *   Y:              Auto-aim at the HIVE (hold). Overrides turning with the triggers.
+ *   Y:              Auto-aim the pollen shooter at the HIVE (hold). Overrides turning with the
+ *                   triggers. Ignored while Start is held (Start + Y toggles the alliance)
+ *   X:              Auto-aim the nectar shooter at the HIVE (hold), the same way. Holding X and
+ *                   Y together aims neither
  *
  * Controls for Gamepad 2:
  *   Left Bumper:    Reverse intake (press to turn on or off)
@@ -42,17 +47,19 @@ import java.util.List;
  *   Dpad Up/Down:   Increase / decrease shooter speed, 100 RPM a press
  *   Dpad Right/Left: Increase / decrease gate 1's position, for finding the values to put in
  *                   ShooterGates. The first press moves it to the middle (0.5) if the position
- *                   isn't set yet. Ignored while X is held (X + d-pad sets the telemetry level)
+ *                   isn't set yet. Ignored while Start is held (Start + d-pad sets the
+ *                   telemetry level)
  *   A:
  *   B:
  *   Y:
  *
  * Either gamepad:
- *   X + B:          Toggle alliance (Red / Blue): hold X, then press B. Can be done during
+ *   Start + Y:      Toggle alliance (Red / Blue): hold Start, then press Y. Can be done during
  *                   INIT. Starts on the alliance chosen in EB Auton, or Red if EB Auton
  *                   hasn't run
- *   X + Dpad Left:  Telemetry at INFO (the default)
- *   X + Dpad Right: Telemetry at DEBUG (adds per-tag, motor power, and joystick lines)
+ *   Start + Dpad Left:  Telemetry at INFO (the default)
+ *   Start + Dpad Right: Telemetry at DEBUG (adds per-tag, motor power, and joystick lines)
+ *   Start + A and Start + B are left alone: the Driver Station uses them to assign gamepads.
  *
  * After EB Auton, odometry picks up from where the auton left the robot, so poses are in field
  * coordinates; otherwise it starts at x 0, y 0, heading 0 wherever the robot is.
@@ -63,7 +70,7 @@ import java.util.List;
  *     leftRearDrive, rightRearDrive    Drive motors
  *     pinpoint                         goBILDA Pinpoint odometry computer
  *   Optional:
- *     shooter                          Shooter motor
+ *     shooter1, shooter2               Shooter motors, always run together
  *     shooterGate1, shooterGate2       Shooter gate servos
  *     intake                           Intake motor
  *     limelight                        Limelight 3A camera
@@ -95,7 +102,7 @@ public class BiobuzzTeleop extends LinearOpMode {
     private boolean redAlliance = true;
     // Where redAlliance and the starting pose came from, for telemetry. While the alliance is
     // still the default, its note is a reminder of how to change it instead.
-    private String allianceSource = "X + B to change";
+    private String allianceSource = "Start + Y to change";
     private String poseSource = "started at 0, 0";
     // Whether odometry is in field coordinates, which it is only when picked up from EB Auton
     private boolean poseOnField = false;
@@ -110,7 +117,7 @@ public class BiobuzzTeleop extends LinearOpMode {
             toggleAlliance();
             logLevel.update(gamepad1, gamepad2);
             follower.update();  // keeps odometry current, for remembering where the HIVE is
-            hardware.updateHiveAim(redAlliance, false);
+            hardware.updateHiveAim(redAlliance, null);
             hardware.addInitTelemetry(telemetry);
             addPoseTelemetry();
             addAimTelemetry();
@@ -133,7 +140,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         while (opModeIsActive()) {
             toggleAlliance();
             logLevel.update(gamepad1, gamepad2);
-            hardware.updateHiveAim(redAlliance, gamepad1.y);
+            hardware.updateHiveAim(redAlliance, heldAimShooter());
             drive();
             shoot();
             tuneGate();
@@ -168,15 +175,15 @@ public class BiobuzzTeleop extends LinearOpMode {
         }
     }
 
-    /** Hold X and press B, on either gamepad, to switch alliance. */
+    /** Hold Start and press Y, on either gamepad, to switch alliance. */
     private void toggleAlliance() {
         for (Gamepad gamepad : new Gamepad[]{gamepad1, gamepad2}) {
-            // Read every pass, so a B press made without X held is used up rather than counted
-            // once X is pressed
-            boolean bPressed = gamepad.bWasPressed();
-            if (bPressed && gamepad.x) {
+            // Read every pass, so a Y press made without Start held is used up rather than
+            // counted once Start is pressed
+            boolean yPressed = gamepad.yWasPressed();
+            if (yPressed && gamepad.start) {
                 redAlliance = !redAlliance;
-                allianceSource = "set with X + B";
+                allianceSource = "set with Start + Y";
             }
         }
     }
@@ -185,26 +192,26 @@ public class BiobuzzTeleop extends LinearOpMode {
         // Check if FastMode is being toggled on or off
         if (gamepad1.a) {
             fastDriveMode = true;
-        } else if (gamepad1.b && !gamepad1.x) {
+        } else if (gamepad1.b) {
             fastDriveMode = false;
         }
 
-        // Hold X and pull the left trigger to switch driver's view drive on or off. The trigger
-        // is checked every pass so each pull counts once, as it starts.
+        // Hold Start and pull the left trigger to switch driver's view drive on or off. The
+        // trigger is checked every pass so each pull counts once, as it starts.
         boolean leftTriggerDown = gamepad1.left_trigger > 0.5;
-        if (gamepad1.x && leftTriggerDown && !leftTriggerWasDown) {
+        if (gamepad1.start && leftTriggerDown && !leftTriggerWasDown) {
             driverViewDrive = !driverViewDrive;
         }
         leftTriggerWasDown = leftTriggerDown;
 
         // The left stick moves the robot fwd/back and strafes left/right
-        // The triggers turn the robot counterclockwise and clockwise, except while X is held, so
-        // X + left trigger doesn't spin the robot
+        // The triggers turn the robot counterclockwise and clockwise, except while Start is held,
+        // so Start + left trigger doesn't spin the robot
         double drive = -gamepad1.left_stick_y;
         double strafe = -gamepad1.left_stick_x;
-        double turn = gamepad1.x ? 0 : gamepad1.left_trigger - gamepad1.right_trigger;
+        double turn = gamepad1.start ? 0 : gamepad1.left_trigger - gamepad1.right_trigger;
 
-        // Auto-aim replaces the driver's turn input while gamepad1 Y is held, when it has
+        // Auto-aim replaces the driver's turn input while gamepad1 Y or X is held, when it has
         // something to aim at (see HiveAim.isControllingTurn)
         if (hiveAim.isControllingTurn()) {
             turn = hiveAim.getTurn();
@@ -227,6 +234,17 @@ public class BiobuzzTeleop extends LinearOpMode {
         follower.update();
     }
 
+    /**
+     * The shooter whose aim button is held on gamepad 1: Y for pollen, X for nectar. Null when
+     * neither or both are held, or while Start is held, since Start + Y toggles the alliance.
+     */
+    private ShooterMount heldAimShooter() {
+        if (gamepad1.start || gamepad1.x == gamepad1.y) {
+            return null;
+        }
+        return gamepad1.y ? ShooterMount.POLLEN : ShooterMount.NECTAR;
+    }
+
     /** The right trigger shoots while held (see ShotControl); the d-pad tunes the shooter speed. */
     private void shoot() {
         boolean speedUpPressed = gamepad2.dpadUpWasPressed();
@@ -240,14 +258,14 @@ public class BiobuzzTeleop extends LinearOpMode {
     }
 
     /**
-     * The d-pad's right and left nudge gate 1's position, for the state it's in. Skipped while X
-     * is held, since X + d-pad left/right sets the telemetry level.
+     * The d-pad's right and left nudge gate 1's position, for the state it's in. Skipped while
+     * Start is held, since Start + d-pad left/right sets the telemetry level.
      */
     private void tuneGate() {
         boolean upPressed = gamepad2.dpadRightWasPressed();
         boolean downPressed = gamepad2.dpadLeftWasPressed();
         ShooterGates.Gate gate = hardware.gates.gate1;
-        if (!gate.isPresent() || gamepad2.x || !(upPressed || downPressed)) {
+        if (!gate.isPresent() || gamepad2.start || !(upPressed || downPressed)) {
             return;
         }
         double position = gate.getPosition();
@@ -301,7 +319,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         }
         if (shooter.isPresent()) {
             telemetry.addData("Shooter Target RPM", "%.0f", shooterRpm);
-            telemetry.addData("Shooter RPM", "%.0f", shooter.getRpm());
+            telemetry.addData("Shooter RPM", shooter.describeRpm());
         } else {
             telemetry.addData("Shooter", "not found -- shooter controls disabled");
         }
@@ -332,9 +350,9 @@ public class BiobuzzTeleop extends LinearOpMode {
 
         telemetry.addLine();
         telemetry.addData("Stick Drive", !driverViewDrive
-                ? "robot's front (X + left trigger to switch)"
+                ? "robot's front (Start + left trigger to switch)"
                 : poseOnField
-                ? "driver's view (X + left trigger to switch)"
+                ? "driver's view (Start + left trigger to switch)"
                 : "driver's view -- no pose from auton, so 'away' is the way the robot faced at"
                         + " START");
         logLevel.addTelemetry(telemetry);

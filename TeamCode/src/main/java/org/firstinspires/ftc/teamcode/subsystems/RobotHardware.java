@@ -44,8 +44,8 @@ public class RobotHardware {
      * Updates hiveAim (see HiveAim.update()) and shows on the lights whether it has tags in view.
      * Call once per loop, in a loop that also calls follower.update().
      */
-    public void updateHiveAim(boolean redAlliance, boolean aimHeld) {
-        hiveAim.update(redAlliance, aimHeld);
+    public void updateHiveAim(boolean redAlliance, ShooterMount aimShooter) {
+        hiveAim.update(redAlliance, aimShooter);
         lights.showTagsInView(hiveAim.hasTarget());
     }
 
@@ -61,8 +61,7 @@ public class RobotHardware {
      */
     public void addInitTelemetry(Telemetry telemetry) {
         telemetry.addData(Utils.column("Pinpoint"), followerTelemetry.pinpointStatus());
-        telemetry.addData(Utils.column("Shooter"), shooter.isPresent()
-                ? "found" : "not found -- shooter won't run");
+        telemetry.addData(Utils.column("Shooter"), shooter.describeFound());
         telemetry.addData(Utils.column("Gates"), gates.describeStatus());
         telemetry.addData(Utils.column("Intake"), intake.isPresent()
                 ? "found" : "not found -- intake won't run");

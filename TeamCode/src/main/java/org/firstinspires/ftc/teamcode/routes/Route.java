@@ -42,6 +42,14 @@ public abstract class Route {
         this.paths = paths;
     }
 
+    /** The route's name for the Driver Station: its class name without "Route" on the end. */
+    public String getName() {
+        String name = getClass().getSimpleName();
+        return name.endsWith("Route") && name.length() > "Route".length()
+                ? name.substring(0, name.length() - "Route".length())
+                : name;
+    }
+
     /**
      * Collects path1(), path2(), ... from the pasted paths object by the number in each method's
      * name, stopping at the first missing one -- that's the naming convention the online path

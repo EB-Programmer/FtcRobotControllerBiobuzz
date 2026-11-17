@@ -12,7 +12,7 @@ import java.util.function.Function;
  * its current value; on either gamepad, d-pad up/down picks a row and d-pad left/right changes
  * that row's value. Every choice starts on its first option, so there's always a complete set of
  * values to run with, and what's on screen is exactly what's used when Start is pressed. The
- * d-pad is ignored on a gamepad whose X is held, since X + d-pad switches LogLevel.
+ * d-pad is ignored on a gamepad whose Start is held, since Start + d-pad switches LogLevel.
  *
  * <pre>
  * InitMenu menu = new InitMenu("Auton setup");
@@ -90,8 +90,8 @@ public class InitMenu {
      * still calls telemetry.update().
      */
     public void update(Gamepad gamepad1, Gamepad gamepad2, Telemetry telemetry) {
-        // Every press is read on every pass, even while X is held, so a press made with X held
-        // is used up then instead of taking effect once X is let go
+        // Every press is read on every pass, even while Start is held, so a press made with Start
+        // held is used up then instead of taking effect once Start is let go
         boolean up = menuPress(gamepad1, gamepad1.dpadUpWasPressed())
                 | menuPress(gamepad2, gamepad2.dpadUpWasPressed());
         boolean down = menuPress(gamepad1, gamepad1.dpadDownWasPressed())
@@ -122,9 +122,9 @@ public class InitMenu {
         telemetry.addLine();
     }
 
-    /** Whether a d-pad press counts for the menu: not while that gamepad's X is held. */
+    /** Whether a d-pad press counts for the menu: not while that gamepad's Start is held. */
     private static boolean menuPress(Gamepad gamepad, boolean wasPressed) {
-        return wasPressed && !gamepad.x;
+        return wasPressed && !gamepad.start;
     }
 
     private static <T> String formatRow(Choice<T> choice, boolean highlighted) {

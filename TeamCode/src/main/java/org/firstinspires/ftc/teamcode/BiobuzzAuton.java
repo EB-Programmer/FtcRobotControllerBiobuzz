@@ -11,8 +11,8 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.routes.DownCell4Route;
 import org.firstinspires.ftc.teamcode.routes.Route;
 import org.firstinspires.ftc.teamcode.routes.RouteActions;
-import org.firstinspires.ftc.teamcode.routes.UpCell4Route;
 import org.firstinspires.ftc.teamcode.routes.UpCell8Route;
+import org.firstinspires.ftc.teamcode.routes.UpCell8TransitRoute;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.RobotHardware;
@@ -33,17 +33,20 @@ import java.util.Locale;
  * During init the driver picks the alliance, the route (the first one in routes, unless changed),
  * and the drive power from a settings menu on the d-pad. The alliance and where the robot ends up
  * are handed on to EB Teleop through MatchSettings. See the routes package for how to add a new
- * route from the online path visualizer. On either gamepad, X + d-pad left/right switches telemetry
- * between INFO and DEBUG (see LogLevel).
+ * route from the online path visualizer. On either gamepad, Start + d-pad left/right switches
+ * telemetry between INFO and DEBUG (see LogLevel).
  */
 @Autonomous(name = "EB Auton", group = "EBBiobuzz", preselectTeleOp = "EB Teleop")
 public class BiobuzzAuton extends LinearOpMode {
 
-    /** Every Route the init menu offers, listed by class name. The first is the default. */
+    /**
+     * Every Route the init menu offers, listed by name (see Route.getName()). The first is the
+     * default.
+     */
     private final Route[] routes = {
             new DownCell4Route(),
-            new UpCell4Route(),
             new UpCell8Route(),
+            new UpCell8TransitRoute(),
     };
 
     /**
@@ -112,14 +115,14 @@ public class BiobuzzAuton extends LinearOpMode {
         redAllianceChoice = menu.choice("Alliance", new Boolean[]{true, false},
                 red -> red ? "RED" : "BLUE");
         InitMenu.Choice<Route> routeChoice =
-                menu.choice("Route", routes, route -> route.getClass().getSimpleName());
+                menu.choice("Route", routes, Route::getName);
         drivePowerChoice = menu.choice("Drive Power", DRIVE_POWERS);
 
         while (opModeInInit()) {
             follower.update();  // keeps odometry, and so the Pinpoint status, current
             logLevel.update(gamepad1, gamepad2);
             menu.update(gamepad1, gamepad2, telemetry);
-            hardware.updateHiveAim(redAllianceChoice.get(), false);  // keeps the lights current
+            hardware.updateHiveAim(redAllianceChoice.get(), null);  // keeps the lights current
             if (routeChoice.changed()) {
                 loadRoute(routeChoice.get());
             }
@@ -148,7 +151,7 @@ public class BiobuzzAuton extends LinearOpMode {
      * sets routeError so the problem shows on the Driver Station during init instead of crashing.
      */
     private void loadRoute(Route chosen) {
-        routeName = chosen.getClass().getSimpleName();
+        routeName = chosen.getName();
         route = null;
         pathSequence = new ArrayList<>();
         routeError = null;
@@ -215,7 +218,7 @@ public class BiobuzzAuton extends LinearOpMode {
             // clears the follower's stuck flag.
             stalled = followerTelemetry.isStalled();
             follower.update();
-            hardware.updateHiveAim(redAlliance, false);
+            hardware.updateHiveAim(redAlliance, null);
             logLevel.update(gamepad1, gamepad2);
             addFollowingTelemetry(pathIndex, path, loopTimer.lap());
             telemetry.update();
@@ -243,7 +246,7 @@ public class BiobuzzAuton extends LinearOpMode {
     /** One pass of the loop that runs while route actions wait: hold position and report. */
     private void holdLoop(String activity) {
         follower.update();
-        hardware.updateHiveAim(redAlliance, false);
+        hardware.updateHiveAim(redAlliance, null);
         logLevel.update(gamepad1, gamepad2);
         double loopMs = loopTimer.lap();
 
@@ -300,7 +303,7 @@ public class BiobuzzAuton extends LinearOpMode {
         }
         telemetry.update();
         while (opModeIsActive()) {
-            hardware.updateHiveAim(redAlliance, false);  // keeps the lights current
+            hardware.updateHiveAim(redAlliance, null);  // keeps the lights current
             idle();
         }
     }

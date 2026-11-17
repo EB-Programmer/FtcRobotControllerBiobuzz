@@ -31,8 +31,12 @@ import java.util.Locale;
  * seen, it turns toward the nearer of our alliance's two CELLS on the field map instead, as long
  * as the robot's pose is in field coordinates (it is after EB Auton). Once the robot faces
  * either spot and still can't see any tags (say, something's in the way), aiming hands turning
- * back to the driver -- see isControllingTurn() -- until the aim button is released or tags come
- * into view.
+ * back to the driver -- see isControllingTurn() -- until the aim buttons are released or tags
+ * come into view.
+ *
+ * What gets pointed at the HIVE is one of the robot's two shooters, picked by the driver (see
+ * ShooterMount): each sits off to the side of the robot's center, so the robot turns a little
+ * toward that shooter's side, more the closer the HIVE is.
  *
  * Either way, the turning itself steers by the Pinpoint's heading, which is up to date every
  * loop: the camera only decides which heading faces the tags. Each camera frame is some
@@ -102,13 +106,16 @@ public class HiveAim {
     private final CellReadiness cellReadiness = new CellReadiness();
     private boolean cornersMissing = false;
     private boolean tiltMissing = false;
-    // The heading, in radians, that faces the middle of the tags in view, from the latest frame;
-    // only meaningful while hasTarget()
+    // The heading, in radians, that points the robot's center at the middle of the tags in view,
+    // and how far that middle is from the robot's center in inches (NaN without 3D positions),
+    // from the latest frame; only meaningful while hasTarget()
     private double cameraTargetHeading = 0;
+    private double cameraTargetDistance = Double.NaN;
     private long lastResultMillis = -1;
 
     private Boolean memoryRedAlliance = null;
-    private boolean aimHeld = false;
+    // The shooter being aimed, or null while no aim button is held
+    private ShooterMount aimShooter = null;
     private boolean reachedExpectedHeading = false;
     private boolean settledOnTags = false;
 
@@ -145,11 +152,19 @@ public class HiveAim {
 
     /**
      * Re-reads the Limelight's latest result, picks out the up CELL's tags from our alliance's
-     * tags, and updates the remembered HIVE position from it. aimHeld is whether the driver is
-     * holding the aim button. Call once per loop, in a loop that also calls follower.update().
+     * tags, and updates the remembered HIVE position from it. aimShooter is the shooter the driver
+     * is holding the aim button for, or null when none is held. Call once per loop, in a loop that
+     * also calls follower.update().
      */
-    public void update(boolean redAlliance, boolean aimHeld) {
-        this.aimHeld = aimHeld;
+    public void update(boolean redAlliance, ShooterMount aimShooter) {
+        if (aimShooter != this.aimShooter) {
+            // Each shooter has its own heading, so being on one's heading says nothing about
+            // the other's
+            reachedExpectedHeading = false;
+            settledOnTags = false;
+            this.aimShooter = aimShooter;
+        }
+        boolean aimHeld = aimShooter != null;
         poseHistory.record(follower.getPose());
         if (memoryRedAlliance == null || memoryRedAlliance != redAlliance) {
             memoryRedAlliance = redAlliance;
@@ -166,7 +181,8 @@ public class HiveAim {
         if (!aimHeld || hasTarget()) {
             reachedExpectedHeading = false;
         } else if (expected != null
-                && Math.abs(headingErrorTo(follower.getPose(), expected)) < TOLERANCE_DEG
+                && Math.abs(headingErrorTo(follower.getPose(), expected, aimShooter))
+                < TOLERANCE_DEG
                 && isTurnStopped()) {
             reachedExpectedHeading = true;
         }
@@ -238,12 +254,16 @@ public class HiveAim {
 
         // The camera sits off to the side of the robot's center (see LimelightMount), so turning
         // until the tags are straight ahead of the camera would leave the robot pointed beside
-        // them. With 3D positions, aim the robot's center at them instead; without, the camera's
-        // angle is the best there is.
+        // them. With 3D positions, work out the heading for the robot's center instead, which the
+        // shooter's offset is added to when aiming (see headingErrorDeg()); without, the camera's
+        // angle is the best there is, and with no distance there's no shooter offset either.
         Pose middle = aimTags.middleRobotPosition();
         double aimErrorDeg = middle != null
                 ? Math.toDegrees(Math.atan2(middle.getY(), middle.getX()))
                 : -aimTags.middleTx();  // positive tx means the tags are to the right
+        cameraTargetDistance = middle != null
+                ? Math.hypot(middle.getX(), middle.getY())
+                : Double.NaN;
         // The frame shows the tags as they were when it was captured, so the heading that faces
         // them is worked out from where the robot was facing then
         Pose facing = robotAtCapture != null ? robotAtCapture : follower.getPose();
@@ -297,12 +317,13 @@ public class HiveAim {
     }
 
     /**
-     * Whether aiming should replace the driver's turning: the aim button is held, there's
+     * Whether aiming should replace the driver's turning: an aim button is held, there's
      * something to aim at (tags in view, or else see expectedTarget()), and the robot hasn't
      * already reached the expected heading without seeing any tags there.
      */
     public boolean isControllingTurn() {
-        return aimHeld && (hasTarget() || expectedTarget() != null) && !reachedExpectedHeading;
+        return aimShooter != null && (hasTarget() || expectedTarget() != null)
+                && !reachedExpectedHeading;
     }
 
     /**
@@ -329,9 +350,10 @@ public class HiveAim {
     }
 
     /**
-     * Turn power that points the robot at the HIVE, in Pedro Pathing's convention (positive turns
-     * counterclockwise): toward the tags when they're in view, otherwise toward expectedTarget().
-     * 0 with nothing to aim at, or once stopped within tolerance, or while settled on the tags.
+     * Turn power that points the shooter being aimed at the HIVE, in Pedro Pathing's convention
+     * (positive turns counterclockwise): toward the tags when they're in view, otherwise toward
+     * expectedTarget(). 0 with nothing to aim at, or once stopped within tolerance, or while
+     * settled on the tags.
      */
     public double getTurn() {
         double errorDeg = headingErrorDeg();
@@ -352,23 +374,38 @@ public class HiveAim {
     }
 
     /**
-     * Degrees to turn from the robot's heading to face what it's aiming at, in (-180, 180],
-     * positive counterclockwise (left): the tags in view, otherwise expectedTarget(). NaN with
+     * Degrees to turn from the robot's heading to point the shooter being aimed at its target,
+     * in (-180, 180], positive counterclockwise (left): the tags in view, otherwise
+     * expectedTarget(). With no aim button held, the robot's center is what's pointed. NaN with
      * nothing to aim at.
      */
     private double headingErrorDeg() {
         Pose robot = follower.getPose();
         if (hasTarget()) {
-            return wrapDeg(Math.toDegrees(cameraTargetHeading - robot.getHeading()));
+            double target = cameraTargetHeading + shooterOffset(aimShooter, cameraTargetDistance);
+            return wrapDeg(Math.toDegrees(target - robot.getHeading()));
         }
         Pose expected = expectedTarget();
-        return expected == null ? Double.NaN : headingErrorTo(robot, expected);
+        return expected == null ? Double.NaN : headingErrorTo(robot, expected, aimShooter);
     }
 
-    /** Signed degrees from robot's heading to face point, in (-180, 180]. */
-    private static double headingErrorTo(Pose robot, Pose point) {
-        double bearing = Math.atan2(point.getY() - robot.getY(), point.getX() - robot.getX());
+    /**
+     * Signed degrees from robot's heading to point shooter at point, in (-180, 180]; a null
+     * shooter means the robot's center.
+     */
+    private static double headingErrorTo(Pose robot, Pose point, ShooterMount shooter) {
+        double bearing = Math.atan2(point.getY() - robot.getY(), point.getX() - robot.getX())
+                + shooterOffset(shooter, robot.distanceFrom(point));
         return wrapDeg(Math.toDegrees(bearing - robot.getHeading()));
+    }
+
+    /**
+     * Radians to add to the heading that points the robot's center at a target distance inches
+     * away, to point shooter at it instead (see ShooterMount.headingOffset()); 0 for a null
+     * shooter.
+     */
+    private static double shooterOffset(ShooterMount shooter, double distance) {
+        return shooter == null ? 0 : shooter.headingOffset(distance);
     }
 
     /** An angle in degrees, wrapped into (-180, 180]. */
@@ -394,13 +431,18 @@ public class HiveAim {
         return Math.abs(turnRateDeg()) < STOPPED_TURN_RATE_DEG;
     }
 
-    /** What aiming is doing, or would do if the aim button were held, for telemetry. */
+    /**
+     * What aiming is doing, or would do if an aim button were held, for telemetry. With no aim
+     * button held, headings are for the robot's center.
+     */
     public String describeStatus() {
+        boolean aimHeld = aimShooter != null;
+        String shooter = aimHeld ? " " + aimShooter.label : "";
         if (hasTarget()) {
             double aimErrorDeg = headingErrorDeg();
             String state = Math.abs(aimErrorDeg) < TOLERANCE_DEG || settledOnTags
-                    ? "LOCKED (camera)"
-                    : aimHeld ? "TURNING to tags (camera)"
+                    ? "LOCKED" + shooter + " (camera)"
+                    : aimHeld ? "TURNING" + shooter + " to tags (camera)"
                     : "tags in view (camera)";
             return String.format(Locale.US, "%s, %d tags, %.1f° %s%s",
                     state, aimTags.size(), Math.abs(aimErrorDeg),
@@ -414,13 +456,13 @@ public class HiveAim {
         }
         String target = memory.isEmpty() ? "nearest CELL (field map)" : "remembered HIVE";
         String state = reachedExpectedHeading
-                ? "ON HEADING to " + target + " -- no tags in view, gamepad 1 turns"
-                : aimHeld ? "TURNING to " + target
+                ? "ON HEADING" + shooter + " to " + target + " -- no tags in view, gamepad 1 turns"
+                : aimHeld ? "TURNING" + shooter + " to " + target
                 : target;
         Pose robot = follower.getPose();
         double headingDeg = Utils.degrees(robot.getHeading());
         double targetDeg = Utils.degrees(
-                robot.getHeading() + Math.toRadians(headingErrorTo(robot, expected)));
+                robot.getHeading() + Math.toRadians(headingErrorTo(robot, expected, aimShooter)));
         return String.format(Locale.US, "%s, heading %.0f° -> %.0f°%s",
                 state, headingDeg, targetDeg, notes);
     }
@@ -445,7 +487,8 @@ public class HiveAim {
     /** How far away point is and which way to turn to face it, e.g. "4'8\" away, 12° left". */
     private String describeFromRobot(Pose point) {
         Pose robot = follower.getPose();
-        double turnDeg = headingErrorTo(robot, point);  // positive is counterclockwise (left)
+        // Positive is counterclockwise (left)
+        double turnDeg = headingErrorTo(robot, point, null);
         long inches = Math.round(robot.distanceFrom(point));
         return String.format(Locale.US, "%d'%d\" away, %.0f° %s",
                 inches / 12, inches % 12, Math.abs(turnDeg), turnDeg >= 0 ? "left" : "right");

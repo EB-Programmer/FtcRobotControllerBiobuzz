@@ -5,8 +5,8 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 
 /**
  * Which telemetry lines an OpMode shows: INFO, the default, for normal driving and runs, or
- * DEBUG, which adds lines for working out what the code is doing. On either gamepad, hold X and
- * press d-pad left for INFO or d-pad right for DEBUG. Every run starts at INFO.
+ * DEBUG, which adds lines for working out what the code is doing. On either gamepad, hold Start
+ * and press d-pad left for INFO or d-pad right for DEBUG. Every run starts at INFO.
  *
  * <pre>
  * logLevel.update(gamepad1, gamepad2);
@@ -27,9 +27,9 @@ public class LogLevel {
      */
     public void update(Gamepad gamepad1, Gamepad gamepad2) {
         for (Gamepad gamepad : new Gamepad[]{gamepad1, gamepad2}) {
-            if (gamepad.x && gamepad.dpad_left) {
+            if (gamepad.start && gamepad.dpad_left) {
                 debug = false;
-            } else if (gamepad.x && gamepad.dpad_right) {
+            } else if (gamepad.start && gamepad.dpad_right) {
                 debug = true;
             }
         }
@@ -47,7 +47,7 @@ public class LogLevel {
     /** The current level and how to switch, for a screen that lays out its own lines. */
     public String describe() {
         return debug
-                ? "DEBUG (X + d-pad left for INFO)"
-                : "INFO (X + d-pad right for DEBUG)";
+                ? "DEBUG (Start + d-pad left for INFO)"
+                : "INFO (Start + d-pad right for DEBUG)";
     }
 }
