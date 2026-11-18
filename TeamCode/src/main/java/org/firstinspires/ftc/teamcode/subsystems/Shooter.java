@@ -22,16 +22,22 @@ public class Shooter {
     public static final double MAX_RPM = 6000;
     // Encoder counts per output-shaft revolution of that motor, which has no gearbox (1:1)
     private static final double TICKS_PER_REV = 28;
-    // Coefficients for the hub's speed control loop, from the usual starting recipe:
-    // F = 32767 / top speed in ticks per second (6000 RPM is 2800 ticks/s), P = F / 10,
-    // I = P / 10, D = 0. F does most of the work. For a closer fit, run the shooter at full power,
-    // read its actual top speed, and recompute F (and P and I) from that.
-    private static final PIDFCoefficients VELOCITY_PIDF =
+    // The hub's power output at full power, in the units its speed control loop works in
+    private static final double FULL_POWER_OUTPUT = 32767;
+    // Coefficients for the hub's speed control loop, which works in ticks per second and sets
+    // power from 0 to FULL_POWER_OUTPUT. F is the power per tick per second of target speed, the
+    // power that holds the speed: FULL_POWER_OUTPUT / the top speed at full power (see
+    // fullPowerF()). P is the extra power per tick per second the shooter is below its target,
+    // which sets how hard it pushes to get there. I slowly makes up any speed still missing.
+    // Values tuned in EB Teleop get copied here; don't change this object, copy it.
+    public static final PIDFCoefficients VELOCITY_PIDF =
             new PIDFCoefficients(1.17, 0.117, 0, 11.7);
 
     private final List<DcMotorEx> motors = new ArrayList<>();
     // The names of the motors not found, e.g. "shooter2", for the init screen; "" with both found
     private String missing = "";
+    // Every motor name in the robot configuration, quoted, for spotting a misnamed shooter motor
+    private String configuredMotors = "";
 
     public Shooter(HardwareMap hardwareMap) {
         for (String name : HARDWARE_NAMES) {
@@ -40,12 +46,30 @@ public class Shooter {
                 missing += (missing.isEmpty() ? "" : ", ") + name;
                 continue;
             }
-            motor.setDirection(DcMotor.Direction.REVERSE);
+            motor.setDirection(DcMotor.Direction.FORWARD);
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-            motor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, VELOCITY_PIDF);
             motors.add(motor);
         }
+        for (String name : hardwareMap.getAllNames(DcMotor.class)) {
+            configuredMotors += (configuredMotors.isEmpty() ? "" : ", ") + "\"" + name + "\"";
+        }
+        setVelocityPidf(VELOCITY_PIDF);
         stop();
+    }
+
+    /** Sets every motor's speed control coefficients, for tuning them. */
+    public void setVelocityPidf(PIDFCoefficients pidf) {
+        for (DcMotorEx motor : motors) {
+            motor.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidf);
+        }
+    }
+
+    /**
+     * The F that matches a top speed of rpm: read rpm with the shooter at full power, which it is
+     * with the target set to MAX_RPM.
+     */
+    public static double fullPowerF(double rpm) {
+        return FULL_POWER_OUTPUT / (rpm * TICKS_PER_REV / 60);
     }
 
     /** Whether at least one shooter motor is configured. */
@@ -92,14 +116,19 @@ public class Shooter {
         return result.append(" RPM").toString();
     }
 
-    /** Which motors were found, for the init screen. */
+    /**
+     * Which motors were found, for the init screen. With any missing, it also lists every motor
+     * name the robot configuration has, since a missing motor is usually one named differently.
+     */
     public String describeFound() {
-        if (motors.isEmpty()) {
-            return "not found -- shooter won't run";
+        if (missing.isEmpty()) {
+            return "found";
         }
-        return missing.isEmpty()
-                ? "found"
+        String found = motors.isEmpty()
+                ? "not found -- shooter won't run"
                 : motors.size() + " of " + HARDWARE_NAMES.length + " found -- missing " + missing;
+        return found + ". Motors in the configuration: "
+                + (configuredMotors.isEmpty() ? "none" : configuredMotors);
     }
 
     private static double rpmOf(DcMotorEx motor) {

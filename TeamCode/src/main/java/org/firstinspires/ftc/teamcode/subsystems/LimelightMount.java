@@ -6,9 +6,9 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
 
 /**
- * Where the Limelight is mounted on the robot, and the math for turning what it sees into
- * positions relative to the robot's center and on the field. Update these constants if the camera
- * moves.
+ * Where the Limelight is mounted on the robot and which way it faces, and the math for turning
+ * what it sees into positions relative to the robot's center and on the field. Update these
+ * constants if the camera moves.
  *
  * The camera's height (13 in above the floor) isn't needed: the Limelight's 3D pose already
  * measures how far away each tag is, so nothing here works distance out from height.
@@ -17,6 +17,9 @@ final class LimelightMount {
     static final double CAMERA_FORWARD_IN = 5.0;  // ahead of the robot's center
     static final double CAMERA_LEFT_IN = -2.0;  // left of the robot's center (negative is right)
     static final double CAMERA_TILT_DEG = 45.0;  // upward from horizontal
+    // Which way the camera faces, counterclockwise from the robot's front: 180 is backward, the
+    // way the shooters shoot
+    static final double CAMERA_YAW_DEG = 180.0;
 
     private LimelightMount() {
     }
@@ -30,11 +33,17 @@ final class LimelightMount {
         if (!has3D(tagInCamera)) {
             return null;
         }
-        // Limelight camera space: +x right, +y down, +z straight out of the lens
+        // Limelight camera space: +x right, +y down, +z straight out of the lens. First level it
+        // out, into how far ahead of the lens and to its left the tag is along the floor...
         Position p = tagInCamera.getPosition().toUnit(DistanceUnit.INCH);
         double tilt = Math.toRadians(CAMERA_TILT_DEG);
-        double forward = p.z * Math.cos(tilt) + p.y * Math.sin(tilt) + CAMERA_FORWARD_IN;
-        double left = -p.x + CAMERA_LEFT_IN;
+        double ahead = p.z * Math.cos(tilt) + p.y * Math.sin(tilt);
+        double toLeft = -p.x;
+        // ...then turn that around to the way the camera faces on the robot, and move it from the
+        // camera to the robot's center
+        double yaw = Math.toRadians(CAMERA_YAW_DEG);
+        double forward = ahead * Math.cos(yaw) - toLeft * Math.sin(yaw) + CAMERA_FORWARD_IN;
+        double left = ahead * Math.sin(yaw) + toLeft * Math.cos(yaw) + CAMERA_LEFT_IN;
         return new Pose(forward, left);
     }
 

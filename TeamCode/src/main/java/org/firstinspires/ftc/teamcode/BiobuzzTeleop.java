@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
@@ -41,16 +42,18 @@ import java.util.List;
  * Controls for Gamepad 2:
  *   Left Bumper:    Reverse intake (press to turn on or off)
  *   Right Bumper:   Intake (press to turn on or off)
- *   Right Trigger:  Shoot (hold): runs the shooter, and opens gate 1 once the shooter passes
- *                   2500 RPM or after 5 s held, whichever comes first. The gate stays open
- *                   until the trigger is released
- *   Dpad Up/Down:   Increase / decrease shooter speed, 100 RPM a press
+ *   Right Trigger:  Shoot (hold): runs the shooter, and opens gate 1 once the shooter reaches
+ *                   95% of the target speed or after 5 s held, whichever comes first. The gate
+ *                   stays open until the trigger is released
+ *   Dpad Up/Down:   Increase / decrease the shooter setting chosen with B: the speed (100 RPM a
+ *                   press, the default), or the speed control's P, I or F, for tuning them
  *   Dpad Right/Left: Increase / decrease gate 1's position, for finding the values to put in
  *                   ShooterGates. The first press moves it to the middle (0.5) if the position
  *                   isn't set yet. Ignored while Start is held (Start + d-pad sets the
  *                   telemetry level)
  *   A:
- *   B:
+ *   B:              Choose which shooter setting d-pad up/down changes: speed, then P, I, F,
+ *                   then speed again, a step a press. Ignored while Start is held
  *   Y:
  *
  * Either gamepad:
@@ -85,7 +88,15 @@ public class BiobuzzTeleop extends LinearOpMode {
 
     // Static so a value tuned with the d-pad carries over to the next run, until the robot
     // app restarts
-    private static double shooterRpm = 6000;
+    private static double shooterRpm = 3000;
+    // The shooter's speed control coefficients, tuned with the d-pad. Static like shooterRpm;
+    // tuned values only last until the robot app restarts, so copy them into Shooter.VELOCITY_PIDF.
+    private static final PIDFCoefficients shooterPidf =
+            new PIDFCoefficients(Shooter.VELOCITY_PIDF);
+
+    /** The shooter settings d-pad up/down can change, in the order B steps through them. */
+    private enum ShooterSetting { SPEED, P, I, F }
+    private ShooterSetting shooterSetting = ShooterSetting.SPEED;
 
     private RobotHardware hardware;
     private Follower follower;
@@ -156,6 +167,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         hardware = new RobotHardware(hardwareMap, telemetry, poseOnField);
         follower = hardware.follower;
         shooter = hardware.shooter;
+        shooter.setVelocityPidf(shooterPidf);
         intake = hardware.intake;
         hiveAim = hardware.hiveAim;
         drivetrain = (Mecanum) follower.getDrivetrain();
@@ -245,16 +257,46 @@ public class BiobuzzTeleop extends LinearOpMode {
         return gamepad1.y ? ShooterMount.POLLEN : ShooterMount.NECTAR;
     }
 
-    /** The right trigger shoots while held (see ShotControl); the d-pad tunes the shooter speed. */
+    /**
+     * The right trigger shoots while held (see ShotControl). D-pad up/down tunes the shooter
+     * setting chosen with B.
+     */
     private void shoot() {
-        boolean speedUpPressed = gamepad2.dpadUpWasPressed();
-        boolean speedDownPressed = gamepad2.dpadDownWasPressed();
+        boolean upPressed = gamepad2.dpadUpWasPressed();
+        boolean downPressed = gamepad2.dpadDownWasPressed();
+        // Read every pass, so a press made with Start held is used up rather than counted later
+        boolean settingPressed = gamepad2.bWasPressed();
         if (!shooter.isPresent()) {
             return;
         }
-        shooterRpm = Utils.tuneConstant(
-                shooterRpm, speedUpPressed, speedDownPressed, 100, Shooter.MAX_RPM);
+        if (settingPressed && !gamepad2.start) {
+            ShooterSetting[] settings = ShooterSetting.values();
+            shooterSetting = settings[(shooterSetting.ordinal() + 1) % settings.length];
+        }
+        if (upPressed || downPressed) {
+            tuneShooterSetting(upPressed, downPressed);
+        }
         hardware.shotControl.update(gamepad2.right_trigger > 0.25, shooterRpm);
+    }
+
+    /** Nudges the shooter setting chosen with B up or down a step. */
+    private void tuneShooterSetting(boolean upPressed, boolean downPressed) {
+        switch (shooterSetting) {
+            case SPEED:
+                shooterRpm = Utils.tuneConstant(
+                        shooterRpm, upPressed, downPressed, 100, Shooter.MAX_RPM);
+                return;
+            case P:
+                shooterPidf.p = Utils.tuneConstant(shooterPidf.p, upPressed, downPressed, 1, 100);
+                break;
+            case I:
+                shooterPidf.i = Utils.tuneConstant(shooterPidf.i, upPressed, downPressed, 0.05, 5);
+                break;
+            case F:
+                shooterPidf.f = Utils.tuneConstant(shooterPidf.f, upPressed, downPressed, 0.1, 50);
+                break;
+        }
+        shooter.setVelocityPidf(shooterPidf);
     }
 
     /**
@@ -320,6 +362,15 @@ public class BiobuzzTeleop extends LinearOpMode {
         if (shooter.isPresent()) {
             telemetry.addData("Shooter Target RPM", "%.0f", shooterRpm);
             telemetry.addData("Shooter RPM", shooter.describeRpm());
+            telemetry.addData("Shooter PIDF", "P %.2f  I %.3f  F %.2f",
+                    shooterPidf.p, shooterPidf.i, shooterPidf.f);
+            telemetry.addData("Shooter D-pad", "%s (gamepad 2 B to change)",
+                    shooterSetting == ShooterSetting.SPEED ? "speed" : shooterSetting.name());
+            telemetry.addData("Shooter Spin-up", hardware.shotControl.describeSpinUp());
+            if (shooterSetting == ShooterSetting.F && shooter.getRpm() > 0) {
+                telemetry.addData("Shooter F at this speed", "%.2f (right only at full power)",
+                        Shooter.fullPowerF(shooter.getRpm()));
+            }
         } else {
             telemetry.addData("Shooter", "not found -- shooter controls disabled");
         }

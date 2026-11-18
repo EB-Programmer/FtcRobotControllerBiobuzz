@@ -35,8 +35,9 @@ import java.util.Locale;
  * come into view.
  *
  * What gets pointed at the HIVE is one of the robot's two shooters, picked by the driver (see
- * ShooterMount): each sits off to the side of the robot's center, so the robot turns a little
- * toward that shooter's side, more the closer the HIVE is.
+ * ShooterMount). They shoot out the robot's back, so aiming turns the back toward the HIVE; and
+ * each sits off to the side of the robot's center, so the robot turns a little further to line
+ * that shooter up, more the closer the HIVE is.
  *
  * Either way, the turning itself steers by the Pinpoint's heading, which is up to date every
  * loop: the camera only decides which heading faces the tags. Each camera frame is some
@@ -106,7 +107,7 @@ public class HiveAim {
     private final CellReadiness cellReadiness = new CellReadiness();
     private boolean cornersMissing = false;
     private boolean tiltMissing = false;
-    // The heading, in radians, that points the robot's center at the middle of the tags in view,
+    // The heading, in radians, that points the robot's front at the middle of the tags in view,
     // and how far that middle is from the robot's center in inches (NaN without 3D positions),
     // from the latest frame; only meaningful while hasTarget()
     private double cameraTargetHeading = 0;
@@ -253,14 +254,16 @@ public class HiveAim {
         cellReadiness.addFrame(captureMillis, aimTags.middleTy());
 
         // The camera sits off to the side of the robot's center (see LimelightMount), so turning
-        // until the tags are straight ahead of the camera would leave the robot pointed beside
-        // them. With 3D positions, work out the heading for the robot's center instead, which the
-        // shooter's offset is added to when aiming (see headingErrorDeg()); without, the camera's
-        // angle is the best there is, and with no distance there's no shooter offset either.
+        // until the tags are straight in front of the camera would leave the robot pointed beside
+        // them. With 3D positions, work out the heading that points the robot's front at them
+        // instead, which the shooter's offset is added to when aiming (see headingErrorDeg());
+        // without, the camera's angle is the best there is, and with no distance there's no
+        // allowance for the shooter's offset to the side either.
         Pose middle = aimTags.middleRobotPosition();
         double aimErrorDeg = middle != null
                 ? Math.toDegrees(Math.atan2(middle.getY(), middle.getX()))
-                : -aimTags.middleTx();  // positive tx means the tags are to the right
+                // Positive tx means the tags are to the camera's right
+                : LimelightMount.CAMERA_YAW_DEG - aimTags.middleTx();
         cameraTargetDistance = middle != null
                 ? Math.hypot(middle.getX(), middle.getY())
                 : Double.NaN;
@@ -376,8 +379,8 @@ public class HiveAim {
     /**
      * Degrees to turn from the robot's heading to point the shooter being aimed at its target,
      * in (-180, 180], positive counterclockwise (left): the tags in view, otherwise
-     * expectedTarget(). With no aim button held, the robot's center is what's pointed. NaN with
-     * nothing to aim at.
+     * expectedTarget(). With no aim button held, it's the robot's center line, pointed the way the
+     * shooters shoot. NaN with nothing to aim at.
      */
     private double headingErrorDeg() {
         Pose robot = follower.getPose();
@@ -391,7 +394,7 @@ public class HiveAim {
 
     /**
      * Signed degrees from robot's heading to point shooter at point, in (-180, 180]; a null
-     * shooter means the robot's center.
+     * shooter means the robot's center line, pointed the way the shooters shoot.
      */
     private static double headingErrorTo(Pose robot, Pose point, ShooterMount shooter) {
         double bearing = Math.atan2(point.getY() - robot.getY(), point.getX() - robot.getX())
@@ -400,12 +403,14 @@ public class HiveAim {
     }
 
     /**
-     * Radians to add to the heading that points the robot's center at a target distance inches
-     * away, to point shooter at it instead (see ShooterMount.headingOffset()); 0 for a null
-     * shooter.
+     * Radians to add to the heading that points the robot's front at a target distance inches
+     * away, to point shooter at it instead (see ShooterMount.headingOffset()); for a null
+     * shooter, the robot's center line, pointed the way the shooters shoot.
      */
     private static double shooterOffset(ShooterMount shooter, double distance) {
-        return shooter == null ? 0 : shooter.headingOffset(distance);
+        return shooter == null
+                ? ShooterMount.centerLineOffset()
+                : shooter.headingOffset(distance);
     }
 
     /** An angle in degrees, wrapped into (-180, 180]. */
@@ -468,9 +473,9 @@ public class HiveAim {
     }
 
     /**
-     * Where the remembered HIVE is, for telemetry: how far away and which way to turn to face it
-     * from where the robot is now, and how long ago tags last updated it. Before any tags have
-     * been seen, the same for the field map's nearest CELL.
+     * Where the remembered HIVE is, for telemetry: how far away and which way to turn to point the
+     * shooting side at it from where the robot is now, and how long ago tags last updated it.
+     * Before any tags have been seen, the same for the field map's nearest CELL.
      */
     public String describeHive() {
         if (!memory.isEmpty()) {
@@ -484,7 +489,10 @@ public class HiveAim {
                 : notSeen + "; nearest CELL on field map " + describeFromRobot(cell);
     }
 
-    /** How far away point is and which way to turn to face it, e.g. "4'8\" away, 12° left". */
+    /**
+     * How far away point is and which way to turn to point the robot's center line at it the way
+     * the shooters shoot, e.g. "4'8\" away, 12° left".
+     */
     private String describeFromRobot(Pose point) {
         Pose robot = follower.getPose();
         // Positive is counterclockwise (left)

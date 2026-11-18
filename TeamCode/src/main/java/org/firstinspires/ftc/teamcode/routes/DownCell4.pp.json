@@ -19,14 +19,14 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 59.75,
+        "x": 53.25,
         "y": 121.5
       },
       "controlPoints": [],
       "heading": {
         "type": "linear",
-        "startDeg": 270,
-        "endDeg": 275
+        "startDeg": 90,
+        "endDeg": 90
       }
     },
     {
@@ -47,8 +47,8 @@
       "heading": {
         "type": "linear",
         "reverse": true,
-        "startDeg": 275,
-        "endDeg": 270
+        "startDeg": 90,
+        "endDeg": 90
       }
     }
   ],

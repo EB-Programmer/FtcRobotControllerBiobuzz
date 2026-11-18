@@ -29,7 +29,7 @@ public class RouteActions {
     // also counts, once it has stopped turning
     private static final double HEADING_NEAR_DEG = 5.0;
     // Shooter speed for shoot()
-    private static final double SHOOT_RPM = 6000;
+    private static final double SHOOT_RPM = 3000;
     // How long shoot() keeps the shooter running once the gate opens
     private static final long SHOOT_AFTER_OPEN_MILLIS = 3000;
     // shoot() stops here on the auton clock, wherever it's got to

@@ -5,7 +5,7 @@
     "x": 58.7,
     "y": 9,
     "locked": false,
-    "headingDeg": 90
+    "headingDeg": 270
   },
   "lines": [
     {
@@ -19,14 +19,14 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 53.25,
+        "x": 59.75,
         "y": 20
       },
       "controlPoints": [],
       "heading": {
         "type": "linear",
-        "startDeg": 90,
-        "endDeg": 90
+        "startDeg": 270,
+        "endDeg": 265
       }
     },
     {
@@ -48,7 +48,7 @@
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 90,
+        "startDeg": 265,
         "endDeg": 180,
         "piecewiseHeading": {
           "segments": [
@@ -150,7 +150,7 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 53.25,
+        "x": 59.75,
         "y": 20
       },
       "controlPoints": [],
@@ -159,7 +159,7 @@
         "reverse": true,
         "degrees": 0,
         "startDeg": 180,
-        "endDeg": 90,
+        "endDeg": 265,
         "piecewiseHeading": {
           "segments": [
             {
@@ -195,8 +195,8 @@
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 90,
-        "endDeg": 90,
+        "startDeg": 265,
+        "endDeg": 270,
         "piecewiseHeading": {
           "segments": [
             {
@@ -232,8 +232,8 @@
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 90,
-        "endDeg": 90,
+        "startDeg": 270,
+        "endDeg": 270,
         "piecewiseHeading": {
           "segments": [
             {

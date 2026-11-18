@@ -11,10 +11,10 @@ public class DownCell4Path {
 
     private final PoseFactory poseFactory = PoseFactory.degrees();
 
-    private final Pose start = poseFactory.of(60.2, 132.5, 270);
-    private final Pose path1 = poseFactory.of(59.75, 121.5, 275);
-    private final Pose point2Start = poseFactory.of(59.75, 121.5, 275);
-    private final Pose point2 = poseFactory.of(13, 121, 270);
+    private final Pose start = poseFactory.of(60.2, 132.5, 90);
+    private final Pose path1 = poseFactory.of(53.25, 121.5, 90);
+    private final Pose point2Start = poseFactory.of(53.25, 121.5, 90);
+    private final Pose point2 = poseFactory.of(13, 121, 90);
 
     public Path path1() {
         return Paths.line(start, path1).linear(start, path1);

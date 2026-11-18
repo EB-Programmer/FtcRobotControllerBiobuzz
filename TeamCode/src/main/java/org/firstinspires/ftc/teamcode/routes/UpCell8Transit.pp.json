@@ -5,7 +5,7 @@
     "x": 58.7,
     "y": 9,
     "locked": false,
-    "headingDeg": 90
+    "headingDeg": 270
   },
   "lines": [
     {
@@ -19,14 +19,14 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 53.25,
+        "x": 59.75,
         "y": 20
       },
       "controlPoints": [],
       "heading": {
         "type": "linear",
-        "startDeg": 90,
-        "endDeg": 90
+        "startDeg": 270,
+        "endDeg": 265
       }
     },
     {
@@ -48,7 +48,7 @@
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 90,
+        "startDeg": 265,
         "endDeg": 180,
         "piecewiseHeading": {
           "segments": [
@@ -150,7 +150,7 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 53.25,
+        "x": 59.75,
         "y": 20
       },
       "controlPoints": [],
@@ -159,7 +159,7 @@
         "reverse": true,
         "degrees": 0,
         "startDeg": 180,
-        "endDeg": 90,
+        "endDeg": 265,
         "piecewiseHeading": {
           "segments": [
             {
@@ -187,16 +187,53 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 60,
-        "y": 42
+        "x": 48,
+        "y": 27
       },
       "controlPoints": [],
       "heading": {
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 90,
-        "endDeg": 270,
+        "startDeg": 265,
+        "endDeg": 180,
+        "piecewiseHeading": {
+          "segments": [
+            {
+              "startProgress": 0,
+              "endProgress": 1,
+              "interpolationType": "linear",
+              "reversed": false,
+              "parameters": {
+                "startDeg": 0,
+                "endDeg": 0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "line-ebtransit-turn2",
+      "color": "#af7aa1",
+      "name": "",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 0,
+      "waitBeforeName": "",
+      "waitAfterName": "",
+      "kind": "atomic",
+      "endPoint": {
+        "x": 60,
+        "y": 34
+      },
+      "controlPoints": [],
+      "heading": {
+        "type": "linear",
+        "reverse": true,
+        "degrees": 0,
+        "startDeg": 180,
+        "endDeg": 90,
         "piecewiseHeading": {
           "segments": [
             {
@@ -224,7 +261,44 @@
       "waitAfterName": "",
       "kind": "atomic",
       "endPoint": {
-        "x": 59.75,
+        "x": 60,
+        "y": 102
+      },
+      "controlPoints": [],
+      "heading": {
+        "type": "linear",
+        "reverse": true,
+        "degrees": 0,
+        "startDeg": 90,
+        "endDeg": 90,
+        "piecewiseHeading": {
+          "segments": [
+            {
+              "startProgress": 0,
+              "endProgress": 1,
+              "interpolationType": "linear",
+              "reversed": false,
+              "parameters": {
+                "startDeg": 0,
+                "endDeg": 0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "line-ebtransit-down",
+      "color": "#ff9da7",
+      "name": "",
+      "locked": false,
+      "waitBeforeMs": 0,
+      "waitAfterMs": 0,
+      "waitBeforeName": "",
+      "waitAfterName": "",
+      "kind": "atomic",
+      "endPoint": {
+        "x": 53.25,
         "y": 121.5
       },
       "controlPoints": [],
@@ -232,8 +306,8 @@
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 270,
-        "endDeg": 275,
+        "startDeg": 90,
+        "endDeg": 90,
         "piecewiseHeading": {
           "segments": [
             {
@@ -262,8 +336,8 @@
         "type": "linear",
         "reverse": false,
         "degrees": 0,
-        "startDeg": 275,
-        "endDeg": 225,
+        "startDeg": 90,
+        "endDeg": 45,
         "piecewiseHeading": {
           "segments": [
             {
@@ -305,8 +379,8 @@
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 225,
-        "endDeg": 225,
+        "startDeg": 45,
+        "endDeg": 45,
         "piecewiseHeading": {
           "segments": [
             {
@@ -335,8 +409,8 @@
         "type": "linear",
         "reverse": true,
         "degrees": 0,
-        "startDeg": 225,
-        "endDeg": 180,
+        "startDeg": 45,
+        "endDeg": 0,
         "piecewiseHeading": {
           "segments": [
             {
@@ -549,7 +623,15 @@
     },
     {
       "kind": "path",
+      "lineId": "line-ebtransit-turn2"
+    },
+    {
+      "kind": "path",
       "lineId": "line-mvspm2f1-9va08c"
+    },
+    {
+      "kind": "path",
+      "lineId": "line-ebtransit-down"
     },
     {
       "kind": "path",
