@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.routes.UpCell8Path;
 import org.firstinspires.ftc.teamcode.subsystems.HiveAim;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.RobotHardware;
@@ -29,9 +30,9 @@ import java.util.List;
  *   Left Trigger:   Turn counterclockwise
  *   Right Trigger:  Turn clockwise
  *   Start + Left Trigger: Toggle driver's view drive (hold Start, then pull the trigger). The
- *                   triggers don't turn while Start is held. Needs the pose from EB Auton to know
- *                   which way is away from the driver; otherwise "away" is the way the robot
- *                   faced at START
+ *                   triggers don't turn while Start is held. Knows which way is away from the
+ *                   driver from the robot's pose (see below), so without EB Auton first, the
+ *                   robot needs to start at the UpCell start pose
  *   A:              Fast Drive Mode
  *   B:              Slow Drive Mode
  *   Y:              Auto-aim the pollen shooter at the HIVE (hold). Overrides turning with the
@@ -67,8 +68,9 @@ import java.util.List;
  *   Start + Dpad Right: Telemetry at DEBUG (adds per-tag, motor power, and joystick lines)
  *   Start + A and Start + B are left alone: the Driver Station uses them to assign gamepads.
  *
- * After EB Auton, odometry picks up from where the auton left the robot, so poses are in field
- * coordinates; otherwise it starts at x 0, y 0, heading 0 wherever the robot is.
+ * Poses are in field coordinates. After EB Auton, odometry picks up from where the auton left the
+ * robot; otherwise it starts at the UpCell routes' start pose (x 58.7, y 9, heading 270°, flush
+ * against the south wall), so place the robot there before INIT.
  *
  * Hardware names expected in the robot configuration:
  *   Required:
@@ -120,9 +122,7 @@ public class BiobuzzTeleop extends LinearOpMode {
     // Where redAlliance and the starting pose came from, for telemetry. While the alliance is
     // still the default, its note is a reminder of how to change it instead.
     private String allianceSource = "Start + Y to change";
-    private String poseSource = "started at 0, 0";
-    // Whether odometry is in field coordinates, which it is only when picked up from EB Auton
-    private boolean poseOnField = false;
+    private String poseSource = "started at UpCell start";
 
     @Override
     public void runOpMode() {
@@ -169,8 +169,8 @@ public class BiobuzzTeleop extends LinearOpMode {
     }
 
     private void initHardware() {
-        poseOnField = MatchSettings.autonEndPose != null;
-        hardware = new RobotHardware(hardwareMap, telemetry, poseOnField);
+        // Both starting poses (see takeMatchSettings()) are in field coordinates
+        hardware = new RobotHardware(hardwareMap, telemetry, true);
         follower = hardware.follower;
         shooter = hardware.shooter;
         shooter.setVelocityPidf(shooterPidf);
@@ -180,7 +180,10 @@ public class BiobuzzTeleop extends LinearOpMode {
         takeMatchSettings();
     }
 
-    /** Picks up the alliance and robot pose that EB Auton left in MatchSettings, if any. */
+    /**
+     * Picks up the alliance and robot pose that EB Auton left in MatchSettings, if any. Without a
+     * pose from auton, the robot starts at the UpCell routes' start pose.
+     */
     private void takeMatchSettings() {
         if (MatchSettings.redAlliance != null) {
             redAlliance = MatchSettings.redAlliance;
@@ -190,6 +193,8 @@ public class BiobuzzTeleop extends LinearOpMode {
             follower.setStartingPose(MatchSettings.autonEndPose);
             MatchSettings.autonEndPose = null;
             poseSource = "from auton";
+        } else {
+            follower.setStartingPose(new UpCell8Path().path1().getPose(0));
         }
     }
 
@@ -429,10 +434,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         telemetry.addLine();
         telemetry.addData("Stick Drive", !driverViewDrive
                 ? "robot's front (Start + left trigger to switch)"
-                : poseOnField
-                ? "driver's view (Start + left trigger to switch)"
-                : "driver's view -- no pose from auton, so 'away' is the way the robot faced at"
-                        + " START");
+                : "driver's view (Start + left trigger to switch)");
         logLevel.addTelemetry(telemetry);
         telemetry.update();
     }
