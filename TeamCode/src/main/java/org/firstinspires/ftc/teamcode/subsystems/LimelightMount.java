@@ -14,8 +14,8 @@ import org.firstinspires.ftc.robotcore.external.navigation.Position;
  * measures how far away each tag is, so nothing here works distance out from height.
  */
 final class LimelightMount {
-    static final double CAMERA_FORWARD_IN = 5.0;  // ahead of the robot's center
-    static final double CAMERA_LEFT_IN = -2.0;  // left of the robot's center (negative is right)
+    static final double CAMERA_FORWARD_IN = -3.5;  // ahead of the robot's center (negative is behind)
+    static final double CAMERA_LEFT_IN = 2.375;  // left of the robot's center (negative is right)
     static final double CAMERA_TILT_DEG = 45.0;  // upward from horizontal
     // Which way the camera faces, counterclockwise from the robot's front: 180 is backward, the
     // way the shooters shoot

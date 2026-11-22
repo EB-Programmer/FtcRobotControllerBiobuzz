@@ -31,7 +31,7 @@ public class Shooter {
     // which sets how hard it pushes to get there. I slowly makes up any speed still missing.
     // Values tuned in EB Teleop get copied here; don't change this object, copy it.
     public static final PIDFCoefficients VELOCITY_PIDF =
-            new PIDFCoefficients(1.17, 0.117, 0, 11.7);
+            new PIDFCoefficients(50, 0, 0, 13.0);
 
     private final List<DcMotorEx> motors = new ArrayList<>();
     // The names of the motors not found, e.g. "shooter2", for the init screen; "" with both found

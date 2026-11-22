@@ -29,11 +29,11 @@ public class RouteActions {
     // also counts, once it has stopped turning
     private static final double HEADING_NEAR_DEG = 5.0;
     // Shooter speed for shoot()
-    private static final double SHOOT_RPM = 3000;
+    private static final double SHOOT_RPM = 3850;
     // How long shoot() keeps the shooter running once the gate opens
     private static final long SHOOT_AFTER_OPEN_MILLIS = 3000;
     // shoot() stops here on the auton clock, wherever it's got to
-    private static final double SHOOT_CUTOFF_SECONDS = 27;
+    private static final double SHOOT_CUTOFF_SECONDS = 26;
 
     private final BooleanSupplier isActive;
     private final HoldLoop holdLoop;
@@ -89,6 +89,11 @@ public class RouteActions {
         shotControl.warmUp(SHOOT_RPM);
     }
 
+    /** Coasts the shooter down and closes the gate, e.g. after warmUpShooter() with no shot. */
+    public void stopShooter() {
+        shotControl.stop();
+    }
+
     /**
      * Shoots, holding position meanwhile: runs the shooter at SHOOT_RPM, opens gate 1 once it's
      * up to speed (see ShotControl), keeps the shooter running SHOOT_AFTER_OPEN_MILLIS more, then
@@ -132,6 +137,18 @@ public class RouteActions {
         return autonTimer.seconds();
     }
 
+    /**
+     * Holds position until the auton clock reaches autonSeconds -- a time in the 30 s auton, not a
+     * length of wait -- e.g. to stay clear of an alliance partner until they've moved on. Returns
+     * right away if the clock is already past it.
+     */
+    public void waitUntilAutonSeconds(double autonSeconds) {
+        String activity = String.format(Locale.US, "wait until %.1fs", autonSeconds);
+        while (isActive.getAsBoolean() && autonTimer.seconds() < autonSeconds) {
+            holdLoop.run(activity);
+        }
+    }
+
     public void waitMillis(long milliseconds) {
         String activity = "wait " + milliseconds + " ms";
         ElapsedTime timer = new ElapsedTime();
@@ -172,6 +189,15 @@ public class RouteActions {
      * having no Limelight, is noted in the end-of-run summary.
      */
     public boolean waitForCellReady(double untilAutonSeconds) {
+        return waitForCellReady(untilAutonSeconds, Double.POSITIVE_INFINITY);
+    }
+
+    /**
+     * waitForCellReady(untilAutonSeconds), also starting the shooter's warm-up (see
+     * warmUpShooter()) if the wait is still going once the auton clock reaches
+     * warmUpAtAutonSeconds. A CELL ready earlier leaves the shooter as it was.
+     */
+    public boolean waitForCellReady(double untilAutonSeconds, double warmUpAtAutonSeconds) {
         if (!hiveAim.hasCamera()) {
             notes.add("skipped wait for CELL ready: no Limelight");
             return false;
@@ -179,7 +205,13 @@ public class RouteActions {
         long millisLeft = Math.round(untilAutonSeconds * 1000 - autonTimer.milliseconds());
         return runUntil(
                 String.format(Locale.US, "wait for CELL ready (until %.1fs)", untilAutonSeconds),
-                hiveAim::isCellReady, Math.max(0, millisLeft));
+                () -> {
+                    if (autonTimer.seconds() >= warmUpAtAutonSeconds) {
+                        shotControl.warmUp(SHOOT_RPM);
+                    }
+                    return hiveAim.isCellReady();
+                },
+                Math.max(0, millisLeft));
     }
 
     /**

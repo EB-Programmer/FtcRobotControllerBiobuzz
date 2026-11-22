@@ -6,17 +6,14 @@ public class DownCell4Route extends Route {
     }
 
     @Override
-    public void atStart(RouteActions robot) {
-        robot.warmUpShooter();
-    }
-
-    @Override
     public void afterPath(int pathNumber, RouteActions robot) {
         if (pathNumber == 1) {
-            robot.waitForCellReady(25);
-            if (robot.autonSeconds() < 20) {
+            // The shooter stays off until 10 s in, then warms up if the wait is still going
+            robot.waitForCellReady(23, 10);
+            if (robot.autonSeconds() < 23) {
                 robot.shoot();
             }
+            robot.stopShooter();
         }
     }
 }

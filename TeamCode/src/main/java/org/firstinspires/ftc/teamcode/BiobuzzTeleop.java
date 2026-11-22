@@ -22,7 +22,7 @@ import org.firstinspires.ftc.teamcode.util.Utils;
 import java.util.List;
 
 /*
- * Controls for Gamepad 1:
+ * Controls for Gamepad 1 (DRIVER):
  *   Left Stick:     Move forward & backward, strafe left & right. In driver's view drive,
  *                   moves relative to the driver standing at the red side of the field instead:
  *                   up drives away from the driver, left drives to the driver's left
@@ -39,13 +39,14 @@ import java.util.List;
  *   X:              Auto-aim the nectar shooter at the HIVE (hold), the same way. Holding X and
  *                   Y together aims neither
  *
- * Controls for Gamepad 2:
+ * Controls for Gamepad 2 (BUTTONS):
  *   Left Bumper:    Reverse intake (press to turn on or off)
  *   Right Bumper:   Intake (press to turn on or off)
  *   Right Trigger:  Shoot (hold): runs the shooter, and opens gate 1 once the shooter reaches
  *                   95% of the target speed or after 5 s held, whichever comes first. The gate
- *                   stays open until the trigger is released
- *   Dpad Up/Down:   Increase / decrease the shooter setting chosen with B: the speed (100 RPM a
+ *                   stays open until the trigger is released. Releasing the trigger stops the
+ *                   shooter and closes the gate, even if it was warming up before the trigger
+ *   Dpad Up/Down:  Increase / decrease the shooter setting chosen with B: the speed (50 RPM a
  *                   press, the default), or the speed control's P, I or F, for tuning them
  *   Dpad Right/Left: Increase / decrease gate 1's position, for finding the values to put in
  *                   ShooterGates. The first press moves it to the middle (0.5) if the position
@@ -54,7 +55,9 @@ import java.util.List;
  *   A:
  *   B:              Choose which shooter setting d-pad up/down changes: speed, then P, I, F,
  *                   then speed again, a step a press. Ignored while Start is held
- *   Y:
+ *   Y:              Warm up the shooter (press to turn on or off): runs it at the target speed
+ *                   with the gate closed, so a shot starts already up to speed. Ignored while
+ *                   the right trigger or Start is held (Start + Y toggles the alliance)
  *
  * Either gamepad:
  *   Start + Y:      Toggle alliance (Red / Blue): hold Start, then press Y. Can be done during
@@ -88,7 +91,7 @@ public class BiobuzzTeleop extends LinearOpMode {
 
     // Static so a value tuned with the d-pad carries over to the next run, until the robot
     // app restarts
-    private static double shooterRpm = 3000;
+    private static double shooterRpm = 3850;
     // The shooter's speed control coefficients, tuned with the d-pad. Static like shooterRpm;
     // tuned values only last until the robot app restarts, so copy them into Shooter.VELOCITY_PIDF.
     private static final PIDFCoefficients shooterPidf =
@@ -97,6 +100,9 @@ public class BiobuzzTeleop extends LinearOpMode {
     /** The shooter settings d-pad up/down can change, in the order B steps through them. */
     private enum ShooterSetting { SPEED, P, I, F }
     private ShooterSetting shooterSetting = ShooterSetting.SPEED;
+    // Whether gamepad 2 Y has the shooter warming up, between shots
+    private boolean warmingUp = false;
+    private boolean warmUpButtonWasDown = false;
 
     private RobotHardware hardware;
     private Follower follower;
@@ -258,14 +264,19 @@ public class BiobuzzTeleop extends LinearOpMode {
     }
 
     /**
-     * The right trigger shoots while held (see ShotControl). D-pad up/down tunes the shooter
-     * setting chosen with B.
+     * The right trigger shoots while held (see ShotControl), and Y warms the shooter up between
+     * shots. D-pad up/down tunes the shooter setting chosen with B.
      */
     private void shoot() {
         boolean upPressed = gamepad2.dpadUpWasPressed();
         boolean downPressed = gamepad2.dpadDownWasPressed();
         // Read every pass, so a press made with Start held is used up rather than counted later
         boolean settingPressed = gamepad2.bWasPressed();
+        // toggleAlliance() already uses up yWasPressed(), so a Y press is caught here as the
+        // button going down. A press that starts with Start held is the alliance toggle's.
+        boolean warmUpButtonDown = gamepad2.y;
+        boolean warmUpPressed = warmUpButtonDown && !warmUpButtonWasDown && !gamepad2.start;
+        warmUpButtonWasDown = warmUpButtonDown;
         if (!shooter.isPresent()) {
             return;
         }
@@ -276,7 +287,20 @@ public class BiobuzzTeleop extends LinearOpMode {
         if (upPressed || downPressed) {
             tuneShooterSetting(upPressed, downPressed);
         }
-        hardware.shotControl.update(gamepad2.right_trigger > 0.25, shooterRpm);
+        if (gamepad2.right_trigger > 0.25) {
+            // Shooting ends warm-up, so letting go of the trigger stops the shooter
+            warmingUp = false;
+            hardware.shotControl.update(true, shooterRpm);
+            return;
+        }
+        if (warmUpPressed) {
+            warmingUp = !warmingUp;
+        }
+        if (warmingUp) {
+            hardware.shotControl.warmUp(shooterRpm);
+        } else {
+            hardware.shotControl.stop();
+        }
     }
 
     /** Nudges the shooter setting chosen with B up or down a step. */
@@ -284,7 +308,7 @@ public class BiobuzzTeleop extends LinearOpMode {
         switch (shooterSetting) {
             case SPEED:
                 shooterRpm = Utils.tuneConstant(
-                        shooterRpm, upPressed, downPressed, 100, Shooter.MAX_RPM);
+                        shooterRpm, upPressed, downPressed, 50, Shooter.MAX_RPM);
                 return;
             case P:
                 shooterPidf.p = Utils.tuneConstant(shooterPidf.p, upPressed, downPressed, 1, 100);
@@ -361,6 +385,9 @@ public class BiobuzzTeleop extends LinearOpMode {
         }
         if (shooter.isPresent()) {
             telemetry.addData("Shooter Target RPM", "%.0f", shooterRpm);
+            telemetry.addData("Shooter Warm-up", warmingUp
+                    ? "on (gamepad 2 Y to stop)"
+                    : "off (gamepad 2 Y to start)");
             telemetry.addData("Shooter RPM", shooter.describeRpm());
             telemetry.addData("Shooter PIDF", "P %.2f  I %.3f  F %.2f",
                     shooterPidf.p, shooterPidf.i, shooterPidf.f);

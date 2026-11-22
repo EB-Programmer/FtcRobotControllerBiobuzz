@@ -22,19 +22,15 @@ public class UpCell8TransitPath {
     private final Pose point5Start = poseFactory.of(12, 9.5, 180);
     private final Pose point5 = poseFactory.of(59.75, 20, 265);
     private final Pose point6Start = poseFactory.of(59.75, 20, 265);
-    private final Pose point6 = poseFactory.of(48, 27, 180);
-    private final Pose point7Start = poseFactory.of(48, 27, 180);
-    private final Pose point7 = poseFactory.of(60, 34, 90);
-    private final Pose point8Start = poseFactory.of(60, 34, 90);
-    private final Pose point8 = poseFactory.of(60, 102, 90);
-    private final Pose point9Start = poseFactory.of(60, 102, 90);
-    private final Pose point9 = poseFactory.of(53.25, 121.5, 90);
-    private final Pose point10Start = poseFactory.of(53.25, 121.5, 90);
-    private final Pose point10 = poseFactory.of(52, 115, 45);
-    private final Pose point11Start = poseFactory.of(52, 115, 45);
-    private final Pose point11 = poseFactory.of(31, 92, 45);
-    private final Pose point12Start = poseFactory.of(31, 92, 45);
-    private final Pose point12 = poseFactory.of(13, 92, 0);
+    private final Pose point6 = poseFactory.of(59, 102, 265);
+    private final Pose point7Start = poseFactory.of(59, 102, 265);
+    private final Pose point7 = poseFactory.of(53.25, 121.5, 90);
+    private final Pose point8Start = poseFactory.of(53.25, 121.5, 90);
+    private final Pose point8 = poseFactory.of(52, 115, 45);
+    private final Pose point9Start = poseFactory.of(52, 115, 45);
+    private final Pose point9 = poseFactory.of(31, 92, 45);
+    private final Pose point10Start = poseFactory.of(31, 92, 45);
+    private final Pose point10 = poseFactory.of(13, 92, 0);
 
     public Path path1() {
         return Paths.line(start, path1).linear(start, path1);
@@ -74,13 +70,5 @@ public class UpCell8TransitPath {
 
     public Path path10() {
         return Paths.line(point10Start, point10).linear(point10Start, point10);
-    }
-
-    public Path path11() {
-        return Paths.line(point11Start, point11).linear(point11Start, point11);
-    }
-
-    public Path path12() {
-        return Paths.line(point12Start, point12).linear(point12Start, point12);
     }
 }

@@ -53,7 +53,7 @@ public class BiobuzzAuton extends LinearOpMode {
      * The init menu's choices for top drive power while following paths. The first is the default;
      * the list wraps around, so stepping down from it goes to the value just below it.
      */
-    private static final Double[] DRIVE_POWERS = {0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.2, 0.3, 0.4};
+    private static final Double[] DRIVE_POWERS = {0.7, 0.8, 0.9, 1.0, 0.2, 0.3, 0.4, 0.5, 0.6};
 
     private RobotHardware hardware;
     private Follower follower;
